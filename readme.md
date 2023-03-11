@@ -20,7 +20,7 @@ robot_gui -f -m maps/1.txt "python main.py"
 
 ![whole_structure](./images/whole_structure.png)
 
-![handle_mudule](./images/handle_mudule.png)
+![handle_mudule](./images/handle_module.png)
 
 ![crucial_problem](./images/crucial_problem.png)
 
