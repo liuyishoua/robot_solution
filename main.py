@@ -1,7 +1,7 @@
 #!/bin/bash
 import sys
 # from log import Log
-from utils import find_indices, find_null_materials_id
+from utils import have_material_type, find_materials_id, stationtype_index, have_product_index, have_material_index
 import numpy as np
 
 def read_util_ok():
@@ -20,7 +20,7 @@ def read_info():
     frame_num, money = input().split()
     frame_num, money = int(frame_num), int(money)
     K = int(input())
-
+    # log.write_string(f"{frame_num}")
     workstations = []
     for i in range(K):
         station_type, x, y, rest_frame, material_state, product_state = input().split()
@@ -46,8 +46,9 @@ def maintain_varible(workstations, robots):
             robot_i.append(distance)
         r_distance.append(robot_i)
 
-    for station_id in range(len(workstations)):
-        s_type.append(workstations[station_id]['type'])
+    if frame_id == 1: # 只在刚开始的时候，维护工作站的类型 
+        for station_id in range(len(workstations)):
+            s_type.append(workstations[station_id]['type'])
     
     return r_distance
 
@@ -59,12 +60,10 @@ def check_action(workstations, robots):
         robot_in_station = robots[robot_id]["if_station"]
         if robots[robot_id]["if_station"] == target_station:
             r_order[robot_id] = 0 # 这里处理完订单后r_order设置为0，寻找下一个订单
-            # 如果出现材料放不下的情况，就不能算处理完订单。
-            
+
             # Check buy or sell. If robot have something, then sell. Otherwise buy.
             if robots[robot_id]["if_product"] != 0:
                 r_action[robot_id][3] = target_station
-
                 # product_id = robots[robot_id]["if_product"]
                 # station_type = workstations[target_station]['type']
                 # m_state = workstations[target_station]['m_state']
@@ -80,52 +79,82 @@ def check_action(workstations, robots):
                 # log.write_string(f"target_station: {target_station}, robot_in_station: {robot_in_station}")
                 # log.write_string(f"product: {workstations[target_station]['p_state']}")
                 # Robot buy, station sell
-                if workstations[target_station]['p_state']:
-                    r_action[robot_id][2] = target_station
-                    # if workstations[target_station]["rest_frame"] != 0:
-                    #     workstations[target_station]['p_state'] = 0
+                r_action[robot_id][2] = target_station
                 # else:
                 #     # Robot buy, but station dont have, do what
                 #     pass
 
 def find_target(r_distance, workstations, robots):
     for robot_id in range(len(robots)):
-        if r_order[robot_id] == 1:
-            pass
-        else:
+        if r_order[robot_id] == 0: # 如果当前机器人没有靶订单，则设置靶订单
             r_distance_with_index = [[distance, index] for index, distance in enumerate(r_distance[robot_id])]
             r_distance_with_index_sorted = sorted(r_distance_with_index, key=lambda x: x[0])
 
-            # Current robot dont have product.
+            # 当前机器人无货物在手，要向工作台买
             if robots[robot_id]['if_product'] == 0:
-                temp_list = [a or b or c for a, b, c in zip(np.array(s_type)==1, np.array(s_type)==2, np.array(s_type)==3)]
-                index_list = [i for i in range(len(temp_list)) if temp_list[i]]
+                # log.write_object(workstations)
+                # log.write_list(s_type)
+                index_list = stationtype_index(s_type, [4, 5, 6, 7]) # 获取工作站类型的 index
+                index_list_with_product = have_product_index(workstations, index_list) # 获取有产品的工作站的 index
+                # 4，5，6，7 工作台是否有货，有则买；否则买 1，2，3 工作台。//如果工作台都没货，之后考虑（基本不存在这种情况，因为1，2，3工作台更新很快）
+                flag = 0
                 for _, index in r_distance_with_index_sorted:
-                    if index in index_list and index not in r_next:
+                    if index in index_list_with_product and index not in r_next:
                         r_next[robot_id] = index
+                        flag = 1
                         break
+                if flag == 0:
+                    index_list = stationtype_index(s_type, [1, 2, 3])
+                    index_list_with_product = have_product_index(workstations, index_list)
+                    for _, index in r_distance_with_index_sorted:
+                        if index in index_list_with_product and index not in r_next:
+                            r_next[robot_id] = index
+                            break
             else:
-                # Current robot have the product
-                robot_product_id = robots[robot_id]['if_product']
-                if robot_product_id == 1:
-                    temp_list = [a or b or c for a, b, c in zip(np.array(s_type)==4, np.array(s_type)==5, np.array(s_type)==9)]
-                    index_list = [i for i in range(len(temp_list)) if temp_list[i]]
-                    for _, index in r_distance_with_index_sorted:
-                        if index in index_list and index not in r_next:
+                # 当前机器人有货物在手，要卖给工作台
+                product_id = robots[robot_id]['if_product'] # 机器人手中产品的类型
+                # 产品类别为1，卖给 4，5，9 工作台
+                # 产品类别为2，卖给 4，6，9 工作台
+                # 产品类别为3，卖给 5，6，9 工作台
+                # 产品类别为4，卖给 7，9 工作台
+                # 产品类别为5，卖给 7，9 工作台
+                # 产品类别为6，卖给 7，9 工作台
+                # 产品类别为7，卖给 8，9 工作台
+                # 要求，卖给的工作台要有材料空位，//且含有优先级数组index，之后考虑//如果不存在有空位的工作台，之后考虑
+                if product_id == 1:
+                    index_list = stationtype_index(s_type, [4, 5, 9]) # 获取工作站类型的 index
+                    # 获取有材料为空缺的工作站的 index。当然,空缺的材料类型与机器人运送物品的类型相同
+                    index_list_with_material = have_material_index(workstations, index_list, product_id)
+                    for _, index in r_distance_with_index_sorted: # 这部分代码速度可以提升
+                        if index in index_list_with_material and index not in r_next:
                             r_next[robot_id] = index
                             break
-                elif robot_product_id == 2:
-                    temp_list = [a or b or c for a, b, c in zip(np.array(s_type)==4, np.array(s_type)==6, np.array(s_type)==9)]
-                    index_list = [i for i in range(len(temp_list)) if temp_list[i]]
+                elif product_id == 2:
+                    index_list = stationtype_index(s_type, [4, 6, 9])
+                    index_list_with_material = have_material_index(workstations, index_list, product_id)
                     for _, index in r_distance_with_index_sorted:
-                        if index in index_list and index not in r_next:
+                        if index in index_list_with_material and index not in r_next:
                             r_next[robot_id] = index
                             break
-                elif robot_product_id == 3:
-                    temp_list = [a or b or c for a, b, c in zip(np.array(s_type)==5, np.array(s_type)==6, np.array(s_type)==9)]
-                    index_list = [i for i in range(len(temp_list)) if temp_list[i]]
+                elif product_id == 3:
+                    index_list = stationtype_index(s_type, [5, 6, 9])
+                    index_list_with_material = have_material_index(workstations, index_list, product_id)
                     for _, index in r_distance_with_index_sorted:
-                        if index in index_list and index not in r_next:
+                        if index in index_list_with_material and index not in r_next:
+                            r_next[robot_id] = index
+                            break
+                elif product_id == 4 or product_id == 5 or product_id == 6:
+                    index_list = stationtype_index(s_type, [7, 9])
+                    index_list_with_material = have_material_index(workstations, index_list, product_id)
+                    for _, index in r_distance_with_index_sorted:
+                        if index in index_list_with_material and index not in r_next:
+                            r_next[robot_id] = index
+                            break
+                elif product_id == 7:
+                    index_list = stationtype_index(s_type, [8, 9])
+                    index_list_with_material = have_material_index(workstations, index_list, product_id)
+                    for _, index in r_distance_with_index_sorted:
+                        if index in index_list_with_material and index not in r_next:
                             r_next[robot_id] = index
                             break
             r_order[robot_id] = 1

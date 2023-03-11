@@ -9,7 +9,7 @@ class Log(object):
         folder = os.path.exists("./log")
         if not folder:
             os.makedirs("./log")
-        open(f"./log/{self.file_name}.txt", "x")
+        open(f"./log/{self.file_name}.txt", "a")
         self.file_path = f"./log/{self.file_name}.txt"
     
     def write_string(self, string):
@@ -23,4 +23,9 @@ class Log(object):
                 for key, value in dict1.items():
                     f.write(f"The {i}-th object: {key}: {value}")
                 f.write("\n")
+    def write_list(self, list_):
+        with open(self.file_path, "a") as f:
+            for element in list_:
+                f.write(f"{element} ")
+            f.write("\n")
 
