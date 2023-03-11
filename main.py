@@ -77,27 +77,28 @@ def check_action(workstations, robots):
         # If robot arrive the target station
         if robots[robot_id]["if_station"] == target_station:
             # Check buy or sell. If robot have something, then sell. Otherwise buy.
-            if robots[robot_id]["if_product"] != -1:
-                product_id = robots[robot_id]["if_product"]
-                station_type = workstations[target_station]['type']
-                m_state = workstations[target_station]['m_state']
-                # Robot sell, station buy
-                # If station not full material, then sell. otherwise do what
-                if product_id in find_null_materials_id(station_type, m_state):
-                    r_action[robot_id][3] = target_station
-                    workstations[target_station]['m_state'] = m_state + int(pow(2, product_id))
-                else:
-                    # Robot sell, but station full, do what
-                    pass
-            else:
-                # Robot buy, station sell
-                if workstations[target_station]['p_state']:
-                    r_action[robot_id][2] = target_station
-                    if workstations[target_station]["rest_frame"] != 0:
-                        workstations[target_station]['p_state'] = 0
-                else:
-                    # Robot buy, but station dont have, do what
-                    pass
+            r_next[robot_id] = r_next[robot_id] % 9 + 1
+            # if robots[robot_id]["if_product"] != -1:
+            #     product_id = robots[robot_id]["if_product"]
+            #     station_type = workstations[target_station]['type']
+            #     m_state = workstations[target_station]['m_state']
+            #     # Robot sell, station buy
+            #     # If station not full material, then sell. otherwise do what
+            #     if product_id in find_null_materials_id(station_type, m_state):
+            #         r_action[robot_id][3] = target_station
+            #         workstations[target_station]['m_state'] = m_state + int(pow(2, product_id))
+            #     else:
+            #         # Robot sell, but station full, do what
+            #         pass
+            # else:
+            #     # Robot buy, station sell
+            #     if workstations[target_station]['p_state']:
+            #         r_action[robot_id][2] = target_station
+            #         if workstations[target_station]["rest_frame"] != 0:
+            #             workstations[target_station]['p_state'] = 0
+            #     else:
+            #         # Robot buy, but station dont have, do what
+            #         pass
 
 def maintain_varible(workstations, robots):
     # Compute distance between robot and station
@@ -161,10 +162,16 @@ def move_target(r_distance, workstations, robots):
         delta_x = workstations[station_target]["x"] - robots[robot_id]['x']
         delta_y = workstations[station_target]["y"] - robots[robot_id]['y']
         direction = np.arctan2(delta_y, delta_x)
-        delta_direction = (direction - robots[robot_id]['direction'])
+        delta_direction = direction - robots[robot_id]['direction']
         r_action[robot_id][1] = delta_direction
         # Always the maximum speed in positive
+        eps = 1
         r_action[robot_id][0] = 3
+        # 墙壁碰撞
+        if robots[robot_id]['x'] < eps or robots[robot_id]['x'] > 50-eps or robots[robot_id]['y'] < eps or robots[robot_id]['y'] > 50-eps:
+            if abs(delta_direction) > 0.1:
+                r_action[robot_id][0] = 0
+
 
 def handle_module(workstations, robots, frame_id, money):
     # Maintain the distance for each robot and s_type for stations.
@@ -175,7 +182,7 @@ def handle_module(workstations, robots, frame_id, money):
 
     # Update r_next for each robot.
     # And speed and angle speed for each robot.
-    find_target(r_distance, workstations, robots)
+    # find_target(r_distance, workstations, robots)
     move_target(r_distance, workstations, robots)
     check_action(workstations, robots)
 
@@ -201,7 +208,7 @@ r_distance = []
 # K station type
 s_type = []
 # The next target station for robot i. Length 4.
-r_next = [5, 2 ,3 ,4]
+r_next = [1, 2, 3, 4]
 # The next action for robot i. For a given robot i, [forward_value, rotate_value, buy_value, sell_value, destroy_value],
 # The last three equal to -1, means no buy, sell and destroy action. list[list[]] shape 4*4
 r_action = [[-1]*5, [-1]*5, [-1]*5, [-1]*5]
