@@ -1,5 +1,7 @@
 #!/bin/bash
 import sys
+from log import Log
+from utils import find_indices, find_null_materials_id
 import numpy as np
 
 def read_util_ok():
@@ -35,71 +37,6 @@ def read_info():
 
     return workstations, robots, frame_num, money
 
-def find_indices(num):
-    # Convert the number to a binary string
-    binary_string = bin(num)[1:][::-1]
-    # Create a list of the non-zero indices using a list comprehension
-    nonzero_indices = [i for i, bit in enumerate(binary_string) if bit == '1']
-    return nonzero_indices
-
-def find_null_materials_id(station_type, num):
-    materials_list = find_indices(num)
-    id_list = []
-    if station_type == 4:
-        if 1 not in materials_list:
-            id_list.append(1)
-        if 2 not in materials_list:
-            id_list.append(2)
-    elif station_type == 5:
-        if 1 not in materials_list:
-            id_list.append(1)
-        if 3 not in materials_list:
-            id_list.append(3)
-    elif station_type == 6:
-        if 2 not in materials_list:
-            id_list.append(2)
-        if 3 not in materials_list:
-            id_list.append(3)
-    elif station_type == 7:
-        if 4 not in materials_list:
-            id_list.append(4)
-        if 5 not in materials_list:
-            id_list.append(5)
-        if 6 not in materials_list:
-            id_list.append(6)
-    
-    return id_list
-
-def check_action(workstations, robots):
-    # Check for buy, sell, destroy for each robot.
-    for robot_id in range(len(robots)):
-        target_station = r_next[robot_id]
-        # If robot arrive the target station
-        if robots[robot_id]["if_station"] == target_station:
-            # Check buy or sell. If robot have something, then sell. Otherwise buy.
-            r_next[robot_id] = r_next[robot_id] % 9 + 1
-            # if robots[robot_id]["if_product"] != -1:
-            #     product_id = robots[robot_id]["if_product"]
-            #     station_type = workstations[target_station]['type']
-            #     m_state = workstations[target_station]['m_state']
-            #     # Robot sell, station buy
-            #     # If station not full material, then sell. otherwise do what
-            #     if product_id in find_null_materials_id(station_type, m_state):
-            #         r_action[robot_id][3] = target_station
-            #         workstations[target_station]['m_state'] = m_state + int(pow(2, product_id))
-            #     else:
-            #         # Robot sell, but station full, do what
-            #         pass
-            # else:
-            #     # Robot buy, station sell
-            #     if workstations[target_station]['p_state']:
-            #         r_action[robot_id][2] = target_station
-            #         if workstations[target_station]["rest_frame"] != 0:
-            #             workstations[target_station]['p_state'] = 0
-            #     else:
-            #         # Robot buy, but station dont have, do what
-            #         pass
-
 def maintain_varible(workstations, robots):
     # Compute distance between robot and station
     for robot_id in range(len(robots)):
@@ -113,6 +50,39 @@ def maintain_varible(workstations, robots):
         s_type.append(workstations[station_id]['type'])
     
     return r_distance
+
+def check_action(workstations, robots):
+    # Check for buy, sell, destroy for each robot.
+    for robot_id in range(len(robots)):
+        target_station = r_next[robot_id]
+        # If robot arrive the target station
+        robot_in_station = robots[robot_id]["if_station"]
+        if robots[robot_id]["if_station"] == target_station:
+            # Check buy or sell. If robot have something, then sell. Otherwise buy.
+            r_action[robot_id][0] = 0
+            if robots[robot_id]["if_product"] != 0:
+                product_id = robots[robot_id]["if_product"]
+                station_type = workstations[target_station]['type']
+                m_state = workstations[target_station]['m_state']
+                # Robot sell, station buy
+                # If station not full material, then sell. otherwise do what
+                if product_id in find_null_materials_id(station_type, m_state):
+                    r_action[robot_id][3] = target_station
+                    workstations[target_station]['m_state'] = m_state + int(pow(2, product_id))
+                else:
+                    # Robot sell, but station full, do what
+                    pass
+            else:
+                log.write_string(f"target_station: {target_station}, robot_in_station: {robot_in_station}")
+                log.write_string(f"product: {workstations[target_station]['p_state']}")
+                # Robot buy, station sell
+                if workstations[target_station]['p_state']:
+                    r_action[robot_id][2] = target_station
+                    # if workstations[target_station]["rest_frame"] != 0:
+                    #     workstations[target_station]['p_state'] = 0
+                else:
+                    # Robot buy, but station dont have, do what
+                    pass
 
 def find_target(r_distance, workstations, robots):
     for robot_id in range(len(robots)):
@@ -162,10 +132,9 @@ def move_target(r_distance, workstations, robots):
         delta_x = workstations[station_target]["x"] - robots[robot_id]['x']
         delta_y = workstations[station_target]["y"] - robots[robot_id]['y']
         direction = np.arctan2(delta_y, delta_x)
-        delta_direction = direction - robots[robot_id]['direction']
+        delta_direction = (direction - robots[robot_id]['direction'])
         r_action[robot_id][1] = delta_direction
         # Always the maximum speed in positive
-        eps = 1
         r_action[robot_id][0] = 3
         # 墙壁碰撞
         if robots[robot_id]['x'] < eps or robots[robot_id]['x'] > 50-eps or robots[robot_id]['y'] < eps or robots[robot_id]['y'] > 50-eps:
@@ -194,15 +163,19 @@ def respond_module():
         sys.stdout.write('forward %d %d\n' % (robot_id, line_speed))
         sys.stdout.write('rotate %d %f\n' % (robot_id, angle_speed))
         if buy != -1:
-            sys.stdout.write('buy %d %d\n' % (robot_id, buy))
+            sys.stdout.write('buy %d\n' % (robot_id))
         if sell != -1:
-            sys.stdout.write('sell %d %d\n' % (robot_id, sell))
+            sys.stdout.write('sell %d\n' % (robot_id))
+        log.write_string('forward %d %d\n' % (robot_id, line_speed))
+        log.write_string('rotate %d %f\n' % (robot_id, angle_speed))
+        log.write_string('buy %d %d\n' % (robot_id, buy))
+        log.write_string('sell %d %d\n' % (robot_id, sell))
 
 # Different material buy and sell money. 
-m_price = [[3000, 6000], [4400, 7600], [5800, 9200], [15400, 22500], [17200, 25000], [19200, 27500], [76000, 105000]]
-station_work_time = [50, 50, 50, 500, 500, 500, 1000, 1, 1]
+# m_price = [[3000, 6000], [4400, 7600], [5800, 9200], [15400, 22500], [17200, 25000], [19200, 27500], [76000, 105000]]
+# station_work_time = [50, 50, 50, 500, 500, 500, 1000, 1, 1]
 # Action mapping
-action_list = ["forward", "rotate", "buy", "sell", "destroy"]
+# action_list = ["forward", "rotate", "buy", "sell", "destroy"]
 # The distance robot to each station. Type list[list[]]
 r_distance = []
 # K station type
@@ -212,6 +185,7 @@ r_next = [1, 2, 3, 4]
 # The next action for robot i. For a given robot i, [forward_value, rotate_value, buy_value, sell_value, destroy_value],
 # The last three equal to -1, means no buy, sell and destroy action. list[list[]] shape 4*4
 r_action = [[-1]*5, [-1]*5, [-1]*5, [-1]*5]
+log = Log()
 
 if __name__ == '__main__':
     read_util_ok()
