@@ -147,17 +147,21 @@ def move_target(r_distance, workstations, robots):
         delta_y = workstations[station_target]["y"] - robots[robot_id]['y']
         direction = np.arctan2(delta_y, delta_x)
         delta_direction = direction - robots[robot_id]['direction']
-        r_action[robot_id][1] = delta_direction
+        # tanh映射角速度
+        ex = np.exp(delta_direction)
+        ex2 = np.exp(-delta_direction)
+        r_action[robot_id][1] = np.pi * (ex - ex2) / (ex + ex2)
+        # r_action[robot_id][1] = delta_direction
         # Always the maximum speed in positive
-        eps = 1
+        eps = 2
         if abs(delta_direction) > 0.1:
             r_action[robot_id][0] = 0
         else:
             if dis_wall(robot_id) < eps:
                 if abs(delta_direction) > 0.01:
-                    r_action[robot_id][0] = 1
-                else:
                     r_action[robot_id][0] = 0
+                else:
+                    r_action[robot_id][0] = 3
             else:
                 r_action[robot_id][0] = 6
         # 是否靠近墙壁
