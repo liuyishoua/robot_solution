@@ -113,11 +113,11 @@ def maintain_varible(workstations, robots):
     
     return r_distance
 
-def update_next(r_distance, workstations, robots):
+def find_target(r_distance, workstations, robots):
     for robot_id in range(len(robots)):
         r_distance_with_index = [[distance, index] for index, distance in enumerate(r_distance[robot_id])]
         r_distance_with_index_sorted = sorted(r_distance_with_index, key=lambda x: x[0])
-        
+
         # Check current robot if have product.
         if robots[robot_id]['if_product'] == 0:
             temp_list = [a or b or c for a, b, c in zip(np.array(s_type)==1, np.array(s_type)==2, np.array(s_type)==3)]
@@ -152,6 +152,7 @@ def update_next(r_distance, workstations, robots):
                         r_next[robot_id] = index
                         break
 
+def move_target(r_distance, workstations, robots):
     # Setting the angle and speed for each robot.
     # Only ensure the + or - for angle
     for robot_id in range(len(robots)):
@@ -159,15 +160,11 @@ def update_next(r_distance, workstations, robots):
         station_target = r_next[robot_id]
         delta_x = workstations[station_target]["x"] - robots[robot_id]['x']
         delta_y = workstations[station_target]["y"] - robots[robot_id]['y']
-        direction = np.arctan(delta_x/delta_y)
-        delta_direction = direction - robots[robot_id]['direction']
-        if (delta_direction > 0 and delta_direction < np.pi) or (delta_direction < -np.pi):
-            r_action[robot_id][1] = np.pi
-        else:
-            r_action[robot_id][1] = -np.pi
-        # Always the maximum speed in positive 
-        r_action[robot_id][0] = 6
-    
+        direction = np.arctan2(delta_y, delta_x)
+        delta_direction = (direction - robots[robot_id]['direction'])
+        r_action[robot_id][1] = delta_direction
+        # Always the maximum speed in positive
+        r_action[robot_id][0] = 3
 
 def handle_module(workstations, robots, frame_id, money):
     # Maintain the distance for each robot and s_type for stations.
@@ -178,7 +175,9 @@ def handle_module(workstations, robots, frame_id, money):
 
     # Update r_next for each robot.
     # And speed and angle speed for each robot.
-    update_next(r_distance, workstations, robots)
+    find_target(r_distance, workstations, robots)
+    move_target(r_distance, workstations, robots)
+    check_action(workstations, robots)
 
 def respond_module():
     sys.stdout.write('%d\n' % frame_id)
@@ -202,7 +201,7 @@ r_distance = []
 # K station type
 s_type = []
 # The next target station for robot i. Length 4.
-r_next = [-1, -1, -1, -1]
+r_next = [5, 2 ,3 ,4]
 # The next action for robot i. For a given robot i, [forward_value, rotate_value, buy_value, sell_value, destroy_value],
 # The last three equal to -1, means no buy, sell and destroy action. list[list[]] shape 4*4
 r_action = [[-1]*5, [-1]*5, [-1]*5, [-1]*5]
