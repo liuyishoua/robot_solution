@@ -1,6 +1,6 @@
 #!/bin/bash
 import sys
-from log import Log
+# from log import Log
 from utils import find_indices, find_null_materials_id
 import numpy as np
 
@@ -129,8 +129,8 @@ def find_target(r_distance, workstations, robots):
                             r_next[robot_id] = index
                             break
             r_order[robot_id] = 1
-            if robot_id == 3:
-                log.write_string(f'second: {frame_id/50}, r_next: {r_next[3]}\n')
+            # if robot_id == 3:
+            #     log.write_string(f'second: {frame_id/50}, r_next: {r_next[3]}\n')
 
 def move_target(r_distance, workstations, robots):
     # Setting the angle and speed for each robot.
@@ -199,7 +199,7 @@ frame_id = 0
 
 # Set an order for each robot, there are orders for 1 and no for 0.
 r_order = [0, 0, 0, 0]
-log = Log()
+# log = Log()
 
 if __name__ == '__main__':
     read_util_ok()
