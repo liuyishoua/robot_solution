@@ -132,6 +132,11 @@ def find_target(r_distance, workstations, robots):
             if robot_id == 3:
                 log.write_string(f'second: {frame_id/50}, r_next: {r_next[3]}\n')
 
+def dis_wall(robot_id):
+    dis = [robots[robot_id]['x'], 50 - robots[robot_id]['x'], robots[robot_id]['y'], 50 - robots[robot_id]['y']]
+    dis = np.array(dis)
+    return dis.min()
+
 def move_target(r_distance, workstations, robots):
     # Setting the angle and speed for each robot.
     # Only ensure the + or - for angle
@@ -145,11 +150,32 @@ def move_target(r_distance, workstations, robots):
         r_action[robot_id][1] = delta_direction
         # Always the maximum speed in positive
         eps = 1
-        r_action[robot_id][0] = 3
-        # 墙壁碰撞
-        if robots[robot_id]['x'] < eps or robots[robot_id]['x'] > 50-eps or robots[robot_id]['y'] < eps or robots[robot_id]['y'] > 50-eps:
-            if abs(delta_direction) > 0.1:
-                r_action[robot_id][0] = 0
+        if abs(delta_direction) > 0.1:
+            r_action[robot_id][0] = 0
+        else:
+            if dis_wall(robot_id) < eps:
+                if abs(delta_direction) > 0.01:
+                    r_action[robot_id][0] = 1
+                else:
+                    r_action[robot_id][0] = 0
+            else:
+                r_action[robot_id][0] = 6
+        # 是否靠近墙壁
+        # if dis_wall(robot_id) > eps:
+        #     if abs(delta_direction) > 0.1:
+        #         r_action[robot_id][0] = 0
+        #     else:
+        #         r_action[robot_id][0] = 6
+        # else:
+        #     # 是否对准
+        #     if abs(delta_direction) > 0.001:
+        #         #没对准，则慢慢减速
+        #         r_action[robot_id][0] = 0
+        #     else:
+        #         #对准，则匀速
+        #         r_action[robot_id][0] = 6
+        # if robot_id == 1:
+        #     log.write_string(f'second: {frame_id / 50}, r_next: {r_next[3]}\n')
 
 
 def handle_module(workstations, robots, frame_id, money):
