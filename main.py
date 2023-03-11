@@ -37,72 +37,6 @@ def read_info():
 
     return workstations, robots, frame_num, money
 
-def find_indices(num):
-    # Convert the number to a binary string
-    binary_string = bin(num)[1:][::-1]
-    # Create a list of the non-zero indices using a list comprehension
-    nonzero_indices = [i for i, bit in enumerate(binary_string) if bit == '1']
-    return nonzero_indices
-
-def find_null_materials_id(station_type, num):
-    materials_list = find_indices(num)
-    id_list = []
-    if station_type == 4:
-        if 1 not in materials_list:
-            id_list.append(1)
-        if 2 not in materials_list:
-            id_list.append(2)
-    elif station_type == 5:
-        if 1 not in materials_list:
-            id_list.append(1)
-        if 3 not in materials_list:
-            id_list.append(3)
-    elif station_type == 6:
-        if 2 not in materials_list:
-            id_list.append(2)
-        if 3 not in materials_list:
-            id_list.append(3)
-    elif station_type == 7:
-        if 4 not in materials_list:
-            id_list.append(4)
-        if 5 not in materials_list:
-            id_list.append(5)
-        if 6 not in materials_list:
-            id_list.append(6)
-    
-    return id_list
-
-def check_action(workstations, robots):
-    # Check for buy, sell, destroy for each robot.
-    for robot_id in range(len(robots)):
-        target_station = r_next[robot_id]
-        # If robot arrive the target station
-        if robots[robot_id]["if_station"] == target_station:
-            # Check buy or sell. If robot have something, then sell. Otherwise buy.
-            # r_next[robot_id] = r_next[robot_id] % 9 + 1
-            r_next[robot_id] = r_next[robot_id] # 这里处理完订单后r_order设置为0，寻找下一个订单
-            # if robots[robot_id]["if_product"] != -1:
-            #     product_id = robots[robot_id]["if_product"]
-            #     station_type = workstations[target_station]['type']
-            #     m_state = workstations[target_station]['m_state']
-            #     # Robot sell, station buy
-            #     # If station not full material, then sell. otherwise do what
-            #     if product_id in find_null_materials_id(station_type, m_state):
-            #         r_action[robot_id][3] = target_station
-            #         workstations[target_station]['m_state'] = m_state + int(pow(2, product_id))
-            #     else:
-            #         # Robot sell, but station full, do what
-            #         pass
-            # else:
-            #     # Robot buy, station sell
-            #     if workstations[target_station]['p_state']:
-            #         r_action[robot_id][2] = target_station
-            #         if workstations[target_station]["rest_frame"] != 0:
-            #             workstations[target_station]['p_state'] = 0
-            #     else:
-            #         # Robot buy, but station dont have, do what
-            #         pass
-
 def maintain_varible(workstations, robots):
     # Compute distance between robot and station
     for robot_id in range(len(robots)):
@@ -125,6 +59,9 @@ def check_action(workstations, robots):
         robot_in_station = robots[robot_id]["if_station"]
         if robots[robot_id]["if_station"] == target_station:
             # Check buy or sell. If robot have something, then sell. Otherwise buy.
+            # r_next[robot_id] = r_next[robot_id] % 9 + 1
+            r_next[robot_id] = r_next[robot_id] # 这里处理完订单后r_order设置为0，寻找下一个订单
+            
             r_action[robot_id][0] = 0
             if robots[robot_id]["if_product"] != 0:
                 product_id = robots[robot_id]["if_product"]
