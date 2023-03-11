@@ -77,7 +77,8 @@ def check_action(workstations, robots):
         # If robot arrive the target station
         if robots[robot_id]["if_station"] == target_station:
             # Check buy or sell. If robot have something, then sell. Otherwise buy.
-            r_next[robot_id] = r_next[robot_id] % 9 + 1
+            # r_next[robot_id] = r_next[robot_id] % 9 + 1
+            r_next[robot_id] = r_next[robot_id] # 这里处理完订单后r_order设置为0，寻找下一个订单
             # if robots[robot_id]["if_product"] != -1:
             #     product_id = robots[robot_id]["if_product"]
             #     station_type = workstations[target_station]['type']
@@ -116,42 +117,49 @@ def maintain_varible(workstations, robots):
 
 def find_target(r_distance, workstations, robots):
     for robot_id in range(len(robots)):
-        r_distance_with_index = [[distance, index] for index, distance in enumerate(r_distance[robot_id])]
-        r_distance_with_index_sorted = sorted(r_distance_with_index, key=lambda x: x[0])
-
-        # Check current robot if have product.
-        if robots[robot_id]['if_product'] == 0:
-            temp_list = [a or b or c for a, b, c in zip(np.array(s_type)==1, np.array(s_type)==2, np.array(s_type)==3)]
-            index_list = [i for i in range(len(temp_list)) if temp_list[i]]
-            # Current robot not take the product
-            for _, index in r_distance_with_index_sorted:
-                if index in index_list and index not in r_next:
-                    r_next[robot_id] = index
-                    break
+        if r_order[robot_id] == 1:
+            break
         else:
-            # Current robot take the product
-            robot_product_id = robots[robot_id]['if_product']
-            if robot_product_id == 1:
-                temp_list = [a or b or c for a, b, c in zip(np.array(s_type)==4, np.array(s_type)==5, np.array(s_type)==9)]
+            r_distance_with_index = [[distance, index] for index, distance in enumerate(r_distance[robot_id])]
+            r_distance_with_index_sorted = sorted(r_distance_with_index, key=lambda x: x[0])
+
+            # Check current robot if have product.
+            if robots[robot_id]['if_product'] == 0:
+                temp_list = [a or b or c for a, b, c in zip(np.array(s_type)==1, np.array(s_type)==2, np.array(s_type)==3)]
                 index_list = [i for i in range(len(temp_list)) if temp_list[i]]
+                # Current robot not take the product
                 for _, index in r_distance_with_index_sorted:
                     if index in index_list and index not in r_next:
                         r_next[robot_id] = index
+                        r_order[robot_id] = 1
                         break
-            elif robot_product_id == 2:
-                temp_list = [a or b or c for a, b, c in zip(np.array(s_type)==4, np.array(s_type)==6, np.array(s_type)==9)]
-                index_list = [i for i in range(len(temp_list)) if temp_list[i]]
-                for _, index in r_distance_with_index_sorted:
-                    if index in index_list and index not in r_next:
-                        r_next[robot_id] = index
-                        break
-            elif robot_product_id == 3:
-                temp_list = [a or b or c for a, b, c in zip(np.array(s_type)==5, np.array(s_type)==6, np.array(s_type)==9)]
-                index_list = [i for i in range(len(temp_list)) if temp_list[i]]
-                for _, index in r_distance_with_index_sorted:
-                    if index in index_list and index not in r_next:
-                        r_next[robot_id] = index
-                        break
+            else:
+                # Current robot take the product
+                robot_product_id = robots[robot_id]['if_product']
+                if robot_product_id == 1:
+                    temp_list = [a or b or c for a, b, c in zip(np.array(s_type)==4, np.array(s_type)==5, np.array(s_type)==9)]
+                    index_list = [i for i in range(len(temp_list)) if temp_list[i]]
+                    for _, index in r_distance_with_index_sorted:
+                        if index in index_list and index not in r_next:
+                            r_next[robot_id] = index
+                            r_order[robot_id] = 1
+                            break
+                elif robot_product_id == 2:
+                    temp_list = [a or b or c for a, b, c in zip(np.array(s_type)==4, np.array(s_type)==6, np.array(s_type)==9)]
+                    index_list = [i for i in range(len(temp_list)) if temp_list[i]]
+                    for _, index in r_distance_with_index_sorted:
+                        if index in index_list and index not in r_next:
+                            r_next[robot_id] = index
+                            r_order[robot_id] = 1
+                            break
+                elif robot_product_id == 3:
+                    temp_list = [a or b or c for a, b, c in zip(np.array(s_type)==5, np.array(s_type)==6, np.array(s_type)==9)]
+                    index_list = [i for i in range(len(temp_list)) if temp_list[i]]
+                    for _, index in r_distance_with_index_sorted:
+                        if index in index_list and index not in r_next:
+                            r_next[robot_id] = index
+                            r_order[robot_id] = 1
+                            break
 
 def move_target(r_distance, workstations, robots):
     # Setting the angle and speed for each robot.
@@ -212,6 +220,9 @@ r_next = [1, 2, 3, 4]
 # The next action for robot i. For a given robot i, [forward_value, rotate_value, buy_value, sell_value, destroy_value],
 # The last three equal to -1, means no buy, sell and destroy action. list[list[]] shape 4*4
 r_action = [[-1]*5, [-1]*5, [-1]*5, [-1]*5]
+
+# Set an order for each robot, there are orders for 1 and no for 0.
+r_order = [0, 0, 0, 0]
 
 if __name__ == '__main__':
     read_util_ok()
