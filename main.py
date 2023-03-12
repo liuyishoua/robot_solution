@@ -2,6 +2,7 @@ import sys
 from utils import have_material_type, find_materials_id, stationtype_index, have_product_index, have_material_index
 import numpy as np
 
+
 # from log import Log
 # log = Log()
 
@@ -45,7 +46,7 @@ def read_info():
                            "y_line_speed": y_line_speed, "direction": direction, "x": x, "y": y})
         robots.append(robot_dict)
         r_action[i][4] = -1
-    
+
     return workstations, robots, frame_num, money
 
 
@@ -61,10 +62,11 @@ def maintain_varible(workstations, robots):
         robot_i = []
         # 机器人之间的距离
         for j in range(len(robots)):
-            distance = np.square((robots[robot_id]['x']-robots[j]['x'])) + np.square((robots[robot_id]['y']-robots[j]['y']))
+            distance = np.square((robots[robot_id]['x'] - robots[j]['x'])) + np.square(
+                (robots[robot_id]['y'] - robots[j]['y']))
             robot_i.append(distance)
         r_r_distance.append(robot_i)
-    
+
     r_priority = []
     # Compute priority from station
     for station_id in range(len(workstations)):
@@ -85,6 +87,10 @@ def maintain_varible(workstations, robots):
 
         if workstations[station_id]['type'] in [7]:
             priority = 50
+
+        for robot_id in range(len(robots)):
+            if robots[robot_id]['if_product'] == workstations[station_id]['type']:
+                priority -= 1
 
         if is_station_rest(station_id) == 0:
             priority = 0
@@ -252,7 +258,6 @@ def find_target(r_distance, r_priority, workstations, robots):
             #                 break
             # r_order[robot_id] = 1
 
-
             r_priority_with_index = [[priority, index] for index, priority in enumerate(r_priority)]
             r_priority_with_index_sorted = sorted(r_priority_with_index, key=lambda x: x[0], reverse=True)
             if robots[robot_id]['if_product'] == 0:
@@ -371,35 +376,38 @@ def move_target(r_distance, workstations, robots):
         #     else:
         #         #对准，则匀速
         #         r_action[robot_id][0] = 6
-    
+
     # 找到会发生碰撞的机器人i与j，进行碰撞躲避
     for robot_i in range(len(robots)):
         for robot_j in range(len(robots)):
             if robot_j > robot_i:
                 # 如果两机器人之间的距离小于碰撞距离阈值，则进一步检测是否会发生碰撞
                 if r_r_distance[robot_i][robot_j] <= (crash_distance * crash_distance):
-                    # 判断 机器人 i，j 之间是否 即将 发生碰撞，如果发生碰撞，则进行规避；不发生，则不做任何行为
+                    # # 判断 机器人 i，j 之间是否 即将 发生碰撞，如果发生碰撞，则进行规避；不发生，则不做任何行为
                     if if_crash(robots, robot_i, robot_j):
                         # 对机器人i与j进行躲避碰撞, 函数内调整角速度。
-                        # evade_crash(robots, robot_i, robot_j)
-                        pass
+                        evade_crash(robots, robot_i, robot_j)
 
 def evade_crash(robots, robot_i, robot_j):
-    r_action[robot_i][1] = np.pi
-    r_action[robot_j][1] = np.pi
+    r_action[robot_j][1] -= 2
+    r_action[robot_i][1] += 2
+    r_action[robot_j][0] = 2
     r_action[robot_i][0] = -2
 
-def if_crash(robots, robot_i, robot_j, frame = 100):
+
+def if_crash(robots, robot_i, robot_j, frame=100):
     ''' 将会发生碰撞返回true, 否则返回false
     '''
     # 5帧，也就是 0.1s 进行一次，未来距离运算.一直到frame的帧数截止
     # 机器人i与j的半径 0.53或0.45
+    if abs(robots[robot_i]['direction'] - robots[robot_j]['direction']) < np.pi / 2:
+        return False
     radius_i = 0.53 if robots[robot_i]['if_product'] else 0.45
     radius_j = 0.53 if robots[robot_j]['if_product'] else 0.45
     distance = radius_i + radius_j
-    during_frame = 5
-    for i in range(int (frame/during_frame)):
-        second = ((i+1) * during_frame) * 0.02
+    during_frame = 1
+    for i in range(int(frame / during_frame)):
+        second = ((i + 1) * during_frame) * 0.02
         v1 = np.sqrt(np.square(robots[robot_i]['x_line_speed']) + np.square(robots[robot_i]['y_line_speed']))
         v2 = np.sqrt(np.square(robots[robot_j]['x_line_speed']) + np.square(robots[robot_j]['y_line_speed']))
         x1 = robots[robot_i]['x'] + v1 * np.cos(robots[robot_i]['direction']) * second
@@ -409,6 +417,7 @@ def if_crash(robots, robot_i, robot_j, frame = 100):
         if np.square(x1 - x2) + np.square(y1 - y2) <= np.square(distance):
             return True
     return False
+
 
 def handle_module(workstations, robots, frame_id, money):
     # Maintain the distance for each robot and s_type for stations.
@@ -437,10 +446,10 @@ def respond_module():
         if destroy != -1:
             sys.stdout.write('destroy %d\n' % (robot_id))
     # log.write_string(f"{r_action[1][4]}")
-        # log.write_string('forward %d %d\n' % (robot_id, line_speed))
-        # log.write_string('rotate %d %f\n' % (robot_id, angle_speed))
-        # log.write_string('buy %d %d\n' % (robot_id, buy))
-        # log.write_string('sell %d %d\n' % (robot_id, sell))
+    # log.write_string('forward %d %d\n' % (robot_id, line_speed))
+    # log.write_string('rotate %d %f\n' % (robot_id, angle_speed))
+    # log.write_string('buy %d %d\n' % (robot_id, buy))
+    # log.write_string('sell %d %d\n' % (robot_id, sell))
 
 
 # Different material buy and sell money.
@@ -453,7 +462,7 @@ r_distance = []
 # 两两机器人之间的距离
 r_r_distance = []
 # 执行碰撞检测的最小距离
-crash_distance = 5
+crash_distance = 3
 # K station type
 s_type = []
 # The next target station for robot i. Length 4.
