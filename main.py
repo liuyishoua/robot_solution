@@ -1,6 +1,6 @@
 #!/bin/bash
 import sys
-# from log import Log
+from log import Log
 from utils import have_material_type, find_materials_id, stationtype_index, have_product_index, have_material_index
 import numpy as np
 
@@ -34,7 +34,8 @@ def read_info():
         if_station, if_product, time_factor, break_factor, angle_speed, x_line_speed, y_line_speed, direction, x, y = int(if_station), int(if_product), float(time_factor), float(break_factor), float(angle_speed), float(x_line_speed), float(y_line_speed), float(direction), float(x), float(y)
         robot_dict = dict({"if_station":if_station, "if_product":if_product, "time_factor":time_factor, "break_factor":break_factor, "angle_speed":angle_speed, "x_line_speed":x_line_speed, "y_line_speed":y_line_speed, "direction":direction, "x":x, "y":y})
         robots.append(robot_dict)
-
+        r_action[i][4] = -1
+    
     return workstations, robots, frame_num, money
 
 def maintain_varible(workstations, robots):
@@ -45,7 +46,13 @@ def maintain_varible(workstations, robots):
             distance = np.square(robots[robot_id]['x'] - workstations[station_id]['x']) + np.square(robots[robot_id]['y'] - workstations[station_id]['y'])
             robot_i.append(distance)
         r_distance.append(robot_i)
-
+        robot_i = []
+        # 机器人之间的距离
+        for j in range(len(robots)):
+            distance = np.square((robots[robot_id]['x']-robots[j]['x'])) + np.square((robots[robot_id]['y']-robots[j]['y']))
+            robot_i.append(distance)
+        r_r_distance.append(robot_i)
+    
     if frame_id == 1: # 只在刚开始的时候，维护工作站的类型 
         for station_id in range(len(workstations)):
             s_type.append(workstations[station_id]['type'])
@@ -60,29 +67,23 @@ def check_action(workstations, robots):
         robot_in_station = robots[robot_id]["if_station"]
         if robots[robot_id]["if_station"] == target_station:
             r_order[robot_id] = 0 # 这里处理完订单后r_order设置为0，寻找下一个订单
-
-            # Check buy or sell. If robot have something, then sell. Otherwise buy.
+            # 检查买卖，都是直接行为。机器人有产品就卖，没产品就买。
             if robots[robot_id]["if_product"] != 0:
-                r_action[robot_id][3] = target_station
-                # product_id = robots[robot_id]["if_product"]
-                # station_type = workstations[target_station]['type']
-                # m_state = workstations[target_station]['m_state']
-                # Robot sell, station buy
-                # If station not full material, then sell. otherwise do what
-                
-                # if product_id in find_null_materials_id(station_type, m_state):    
-                #     workstations[target_station]['m_state'] = m_state + int(pow(2, product_id))
-                # else:
-                #     # Robot sell, but station full, do what
-                #     pass
+                # 可做判断。能否卖。
+                station_type = workstations[target_station]['type']
+                # 进一步判断靶工作站,空缺材料位的list
+                material_id = find_materials_id(station_type, workstations[target_station]['m_state'])
+                if robots[robot_id]["if_product"] in material_id:
+                    # 可卖成功
+                    r_action[robot_id][3] = target_station
+                else:
+                    # destory非 -1 都能执行
+                    # 销毁操作，只在当前帧进行。
+                    # r_action[robot_id][4] = 2
+                    pass
             else:
-                # log.write_string(f"target_station: {target_station}, robot_in_station: {robot_in_station}")
-                # log.write_string(f"product: {workstations[target_station]['p_state']}")
-                # Robot buy, station sell
+                # 能否成功买，不用判断
                 r_action[robot_id][2] = target_station
-                # else:
-                #     # Robot buy, but station dont have, do what
-                #     pass
 
 def find_target(r_distance, workstations, robots):
     for robot_id in range(len(robots)):
@@ -207,9 +208,47 @@ def move_target(r_distance, workstations, robots):
         #     else:
         #         #对准，则匀速
         #         r_action[robot_id][0] = 6
-        # if robot_id == 1:
-        #     log.write_string(f'second: {frame_id / 50}, r_next: {r_next[3]}\n')
+    
+    # 找到会发生碰撞的机器人i与j，进行碰撞躲避
+    detect_robot_list = []
+    for robot_i in range(len(robots)):
+        for robot_j in range(len(robots)):
+            if robot_j > robot_i:
+                # 如果两机器人之间的距离小于碰撞距离阈值，则进一步检测是否会发生碰撞
+                if r_r_distance[robot_i][robot_j] <= (crash_distance * crash_distance):
+                    # detect_robot_list.append([robot_id, j])
+                    # 判断 机器人 i，j 之间是否 即将 发生碰撞，如果发生碰撞，则进行规避；不发生，则不做任何行为
+                    if if_crash(robots, robot_i, robot_j):
+                        # 对机器人i与j进行躲避碰撞, 函数内调整角速度。
+                        evade_crash(robots, robot_i, robot_j)
 
+def evade_crash(robots, robot_i, robot_j):
+    # angle_speedi =  
+    # angle_speedi = if robots[robot_j]['direction']
+    r_action[robot_i][1] = - np.pi
+    r_action[robot_j][1] = np.pi
+    r_action[robot_i][0] = -2
+
+def if_crash(robots, robot_i, robot_j, frame = 50):
+    ''' 将会发生碰撞返回true, 否则返回false
+    '''
+    # 5帧，也就是 0.1s 进行一次，未来距离运算.一直到frame的帧数截止
+    # 机器人i与j的半径 0.53或0.45
+    radius_i = 0.53 if robots[robot_i]['if_product'] else 0.45
+    radius_j = 0.53 if robots[robot_j]['if_product'] else 0.45
+    distance = radius_i + radius_j
+    during_frame = 5
+    for i in range(int (frame/during_frame)):
+        second = ((i+1) * during_frame) * 0.02
+        v1 = np.sqrt(np.square(robots[robot_i]['x_line_speed']) + np.square(robots[robot_i]['y_line_speed']))
+        v2 = np.sqrt(np.square(robots[robot_j]['x_line_speed']) + np.square(robots[robot_j]['y_line_speed']))
+        x1 = robots[robot_i]['x'] + v1 * np.cos(robots[robot_i]['direction']) * second
+        y1 = robots[robot_i]['y'] + v1 * np.sin(robots[robot_i]['direction']) * second
+        x2 = robots[robot_j]['x'] + v2 * np.cos(robots[robot_j]['direction']) * second
+        y2 = robots[robot_j]['y'] + v2 * np.cos(robots[robot_j]['direction']) * second
+        if np.square(x1 - x2) + np.square(y1 - y2) <= np.square(distance):
+            return True
+    return False
 
 def handle_module(workstations, robots, frame_id, money):
     # Maintain the distance for each robot and s_type for stations.
@@ -234,6 +273,9 @@ def respond_module():
             sys.stdout.write('buy %d\n' % (robot_id))
         if sell != -1:
             sys.stdout.write('sell %d\n' % (robot_id))
+        if destroy != -1:
+            sys.stdout.write('destroy %d\n' % (robot_id))
+    # log.write_string(f"{r_action[1][4]}")
         # log.write_string('forward %d %d\n' % (robot_id, line_speed))
         # log.write_string('rotate %d %f\n' % (robot_id, angle_speed))
         # log.write_string('buy %d %d\n' % (robot_id, buy))
@@ -246,19 +288,24 @@ def respond_module():
 # action_list = ["forward", "rotate", "buy", "sell", "destroy"]
 # The distance robot to each station. Type list[list[]]
 r_distance = []
+# 两两机器人之间的距离
+r_r_distance = []
+# 执行碰撞检测的最小距离
+crash_distance = 2
 # K station type
 s_type = []
 # The next target station for robot i. Length 4.
 r_next = [-1, -1, -1, -1]
 # The next action for robot i. For a given robot i, [forward_value, rotate_value, buy_value, sell_value, destroy_value],
 # The last three equal to -1, means no buy, sell and destroy action. list[list[]] shape 4*4
+# 销毁操作初始为-1， 销毁则为2.
 r_action = [[-1]*5, [-1]*5, [-1]*5, [-1]*5]
 
 frame_id = 0
 
 # Set an order for each robot, there are orders for 1 and no for 0.
 r_order = [0, 0, 0, 0]
-# log = Log()
+log = Log()
 
 if __name__ == '__main__':
     read_util_ok()
