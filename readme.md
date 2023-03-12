@@ -4,10 +4,10 @@
 robot -m maps/1.txt "python main.py"
 
 # Gui run
-robot_gui -m maps/1.txt "python main.py"
+robot_gui -m maps/3.txt "python main.py"
 
 # Add augument -f can change to fast mode
-robot_gui -f -m maps/1.txt "python main.py"
+robot_gui -f -m maps/3.txt "python main.py"
 
 ``` 
 ### Files
