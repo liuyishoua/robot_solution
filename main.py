@@ -389,19 +389,16 @@ def move_target(r_distance, workstations, robots):
                         evade_crash(robots, robot_i, robot_j)
 
 def evade_crash(robots, robot_i, robot_j):
-    r_action[robot_j][1] -= 2
-    r_action[robot_i][1] += 2
-    r_action[robot_j][0] = 2
-    r_action[robot_i][0] = -2
-
+    r_action[robot_j][0] = -2
+    r_action[robot_j][1] = - np.sign(r_action[robot_i][1]) * np.pi
 
 def if_crash(robots, robot_i, robot_j, frame=100):
     ''' 将会发生碰撞返回true, 否则返回false
     '''
     # 5帧，也就是 0.1s 进行一次，未来距离运算.一直到frame的帧数截止
     # 机器人i与j的半径 0.53或0.45
-    if abs(robots[robot_i]['direction'] - robots[robot_j]['direction']) < np.pi / 2:
-        return False
+    # if abs(robots[robot_i]['direction'] - robots[robot_j]['direction']) < np.pi / 2:
+    #     return False
     radius_i = 0.53 if robots[robot_i]['if_product'] else 0.45
     radius_j = 0.53 if robots[robot_j]['if_product'] else 0.45
     distance = radius_i + radius_j
@@ -462,7 +459,7 @@ r_distance = []
 # 两两机器人之间的距离
 r_r_distance = []
 # 执行碰撞检测的最小距离
-crash_distance = 3
+crash_distance = 5
 # K station type
 s_type = []
 # The next target station for robot i. Length 4.
