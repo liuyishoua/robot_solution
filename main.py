@@ -215,13 +215,13 @@ def handle_module(workstations, robots, frame_id, money):
     # Maintain the distance for each robot and s_type for stations.
     r_distance = maintain_varible(workstations, robots)
 
-    # Check and update buy, sell, destroy action for each robot.
-    check_action(workstations, robots)
-
     # Update r_next for each robot.
     # And speed and angle speed for each robot.
     find_target(r_distance, workstations, robots)
     move_target(r_distance, workstations, robots)
+
+    # Check and update buy, sell, destroy action for each robot.
+    check_action(workstations, robots)
 
 def respond_module():
     sys.stdout.write('%d\n' % frame_id)
