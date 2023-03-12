@@ -166,7 +166,7 @@ def dis_wall(robot_id):
     dis = np.array(dis)
     return dis.min()
 
-def move_target(r_distance, workstations, robots):
+def move_target(r2r_dis, workstations, robots):
     # Setting the angle and speed for each robot.
     # Only ensure the + or - for angle
     for robot_id in range(len(robots)):
@@ -193,6 +193,15 @@ def move_target(r_distance, workstations, robots):
                     r_action[robot_id][0] = 3
             else:
                 r_action[robot_id][0] = 6
+                # 与当前机器人最近机器人id
+                nearest_robot_id = r2r_dis[robot_id].index(min(r2r_dis[robot_id])) 
+                if r2r_dis[robot_id][nearest_robot_id] > 4: 
+                    # 与最近机器人距离大于4m, 不管，这里取4也可能相撞，因为本身有一个初速度
+                    pass
+                else: 
+                    # 距离小于4m，尽可能避免，如果不能避免，减小速度。没有判断方向存在两个机器人缓慢朝一个方向运动。
+                    # 这种方式两个机器人都减速，实际上可以一个减速，一个不减。或者两个都不减速，但是调整方向。
+                    r_action[robot_id][0] *= 0.6
         # 是否靠近墙壁
         # if dis_wall(robot_id) > eps:
         #     if abs(delta_direction) > 0.1:
@@ -210,15 +219,32 @@ def move_target(r_distance, workstations, robots):
         # if robot_id == 1:
         #     log.write_string(f'second: {frame_id / 50}, r_next: {r_next[3]}\n')
 
+# 计算机器人与机器人直接的距离
+def robot2robot_distance(robots):
+    # Compute distance between robots
+    for robot_id_i in range(len(robots)):
+        robot_dis = []
+        for robot_id_j in range(len(robots)):
+            distance = np.square(robots[robot_id_i]['x'] - robots[robot_id_j]['x']) + np.square(robots[robot_id_i]['y'] - robots[robot_id_j]['y'])
+            distance = np.sqrt(distance)
+            distance = distance.astype(int)
+            if robot_id_i == robot_id_j:
+                distance = 100 # 机器人自己与自己的距离设为100，这样直接找与其他机器人最小的距离，
+            robot_dis.append(distance)
+        r2r_dis.append(robot_dis)
+    return r2r_dis
+
 
 def handle_module(workstations, robots, frame_id, money):
     # Maintain the distance for each robot and s_type for stations.
     r_distance = maintain_varible(workstations, robots)
 
+    # 计算机机器人之间距离
+    r2r_dis = robot2robot_distance(robots)
     # Update r_next for each robot.
     # And speed and angle speed for each robot.
     find_target(r_distance, workstations, robots)
-    move_target(r_distance, workstations, robots)
+    move_target(r2r_dis, workstations, robots)
 
     # Check and update buy, sell, destroy action for each robot.
     check_action(workstations, robots)
@@ -259,6 +285,9 @@ frame_id = 0
 # Set an order for each robot, there are orders for 1 and no for 0.
 r_order = [0, 0, 0, 0]
 # log = Log()
+
+# The distance robot to each robot. Type list[list[]]
+r2r_dis = []
 
 if __name__ == '__main__':
     read_util_ok()
