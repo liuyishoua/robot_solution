@@ -1,4 +1,3 @@
-
 ### Run
 ```python
 # run
@@ -15,9 +14,13 @@ robot_gui -f -m maps/1.txt "python main.py"
 
 * `main.py` is the core funtion for the task.
 
-* `华为挑战赛-更新中-思路简图.pptx` to clarify the problem and the code explaination.
+* `baseline_i.py` improves 20W, then save as a newest baseline.
 
-* `华为挑战赛-更新中-计划.docx` is the plan to optimize.
+* `utils.py` puts useful function.
+
+* `log.py` to debug, save running infomation in folder `/log/*.txt`.
+
+* `华为挑战赛-更新中-思路简图.pptx` to clarify the problem and the code explaination.
 
 * Other files useless.
 
