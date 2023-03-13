@@ -358,7 +358,7 @@ def move_target(r_distance, workstations, robots):
         # r_action[robot_id][1] = delta_direction
         # Always the maximum speed in positive
         eps = 2
-        if abs(delta_direction) > 0.1:
+        if abs(delta_direction) > np.pi:
             r_action[robot_id][0] = 0
         else:
             if dis_wall(robot_id) < eps:
@@ -376,37 +376,12 @@ def move_target(r_distance, workstations, robots):
                     if if_crash(robots, robot_id, robot_j):
                         # 对机器人i与j进行躲避碰撞, 函数内调整角速度。
                         evade_crash(robots, robot_id, robot_j)
-        # 是否靠近墙壁
-        # if dis_wall(robot_id) > eps:
-        #     if abs(delta_direction) > 0.1:
-        #         r_action[robot_id][0] = 0
-        #     else:
-        #         r_action[robot_id][0] = 6
-        # else:
-        #     # 是否对准
-        #     if abs(delta_direction) > 0.001:
-        #         #没对准，则慢慢减速
-        #         r_action[robot_id][0] = 0
-        #     else:
-        #         #对准，则匀速
-        #         r_action[robot_id][0] = 6
-
-    # # 找到会发生碰撞的机器人i与j，进行碰撞躲避
-    # for robot_i in range(len(robots)):
-    #     for robot_j in range(len(robots)):
-    #         if robot_j > robot_i:
-    #             # 如果两机器人之间的距离小于碰撞距离阈值，则进一步检测是否会发生碰撞
-    #             if r_r_distance[robot_i][robot_j] <= (crash_distance * crash_distance):
-    #                 # # 判断 机器人 i，j 之间是否 即将 发生碰撞，如果发生碰撞，则进行规避；不发生，则不做任何行为
-    #                 if if_crash(robots, robot_i, robot_j):
-    #                     # 对机器人i与j进行躲避碰撞, 函数内调整角速度。
-    #                     evade_crash(robots, robot_i, robot_j)
 
 def evade_crash(robots, robot_i, robot_j):
     if r_action[robot_i][0] > r_action[robot_j][0]:
         pass
     else:
-        r_action[robot_i][0] = 3 
+        r_action[robot_i][0] = 3
         r_action[robot_i][1] = 0.5 * np.pi
         r_action[robot_j][1] = - 0.5 * np.pi
 
