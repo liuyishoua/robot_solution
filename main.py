@@ -74,13 +74,13 @@ def maintain_varible(workstations, robots):
 
         # 补2缺1
         if is_materials_2only1_rest(workstations[station_id]['type']):
-            priority = 20
+            priority = 40
         # 补3缺2
         if is_materials_3only2_rest(workstations[station_id]['type']):
             priority = 15
         # 补3缺1
         if is_materials_3only1_rest(workstations[station_id]['type']):
-            priority = 30
+            priority = 50
 
         if workstations[station_id]['type'] in [4, 5, 6]:
             priority = 40
@@ -362,6 +362,14 @@ def move_target(r_distance, workstations, robots):
                     r_action[robot_id][0] = 3
             else:
                 r_action[robot_id][0] = 6
+        for robot_j in range(len(robots)):
+            if robot_j > robot_id:
+                # 如果两机器人之间的距离小于碰撞距离阈值，则进一步检测是否会发生碰撞
+                if r_r_distance[robot_id][robot_j] <= (crash_distance * crash_distance):
+                    # # 判断 机器人 i，j 之间是否 即将 发生碰撞，如果发生碰撞，则进行规避；不发生，则不做任何行为
+                    if if_crash(robots, robot_id, robot_j):
+                        # 对机器人i与j进行躲避碰撞, 函数内调整角速度。
+                        evade_crash(robots, robot_id, robot_j)
         # 是否靠近墙壁
         # if dis_wall(robot_id) > eps:
         #     if abs(delta_direction) > 0.1:
@@ -377,20 +385,24 @@ def move_target(r_distance, workstations, robots):
         #         #对准，则匀速
         #         r_action[robot_id][0] = 6
 
-    # 找到会发生碰撞的机器人i与j，进行碰撞躲避
-    for robot_i in range(len(robots)):
-        for robot_j in range(len(robots)):
-            if robot_j > robot_i:
-                # 如果两机器人之间的距离小于碰撞距离阈值，则进一步检测是否会发生碰撞
-                if r_r_distance[robot_i][robot_j] <= (crash_distance * crash_distance):
-                    # # 判断 机器人 i，j 之间是否 即将 发生碰撞，如果发生碰撞，则进行规避；不发生，则不做任何行为
-                    if if_crash(robots, robot_i, robot_j):
-                        # 对机器人i与j进行躲避碰撞, 函数内调整角速度。
-                        evade_crash(robots, robot_i, robot_j)
+    # # 找到会发生碰撞的机器人i与j，进行碰撞躲避
+    # for robot_i in range(len(robots)):
+    #     for robot_j in range(len(robots)):
+    #         if robot_j > robot_i:
+    #             # 如果两机器人之间的距离小于碰撞距离阈值，则进一步检测是否会发生碰撞
+    #             if r_r_distance[robot_i][robot_j] <= (crash_distance * crash_distance):
+    #                 # # 判断 机器人 i，j 之间是否 即将 发生碰撞，如果发生碰撞，则进行规避；不发生，则不做任何行为
+    #                 if if_crash(robots, robot_i, robot_j):
+    #                     # 对机器人i与j进行躲避碰撞, 函数内调整角速度。
+    #                     evade_crash(robots, robot_i, robot_j)
 
 def evade_crash(robots, robot_i, robot_j):
-    r_action[robot_j][0] = -2
-    r_action[robot_j][1] = - np.sign(r_action[robot_i][1]) * np.pi
+    if r_action[robot_i][0] > r_action[robot_j][0]:
+        pass
+    else:
+        r_action[robot_i][0] = 3 
+        r_action[robot_i][1] = 0.5 * np.pi
+        r_action[robot_j][1] = - 0.5 * np.pi
 
 def if_crash(robots, robot_i, robot_j, frame=100):
     ''' 将会发生碰撞返回true, 否则返回false
@@ -434,6 +446,8 @@ def respond_module():
     # line_speed, angle_speed = 3, 1.5
     for robot_id in range(4):
         line_speed, angle_speed, buy, sell, destroy = r_action[robot_id]
+        if frame_id > 8500:
+            buy = -1
         sys.stdout.write('forward %d %d\n' % (robot_id, line_speed))
         sys.stdout.write('rotate %d %f\n' % (robot_id, angle_speed))
         if buy != -1:
