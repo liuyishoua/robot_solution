@@ -13,7 +13,8 @@ def have_material_type(num):
     return have_material_type
 
 def find_materials_id(station_type, num):
-    '''例如48 (110000) 表示拥有物品 4 和 5。
+    '''输入的工作台类别只能是4,5,6,7,8,9, 这种收购类型的工作台
+    例如48 (110000) 表示拥有物品 4 和 5。
     根据工作台的类型, 返回工作台当前空缺的材料类别
     如果是工作台 4, 只拥有 1 类别的物品, 那么工作台 4, 还有 2 类别的物品是空缺的
     返回 list
@@ -50,8 +51,12 @@ def find_materials_id(station_type, num):
     return id_list
 
 def stationtype_index(s_type, type_index):
-    '''给定 station type 类型，获取相应的 index
+    '''给定工作台的类型，获取相应的 index
     '''
+    # 如果产品类型数组为空，则返回空数组
+    if len(type_index) == 0:
+        return []
+
     result_index = (np.array(s_type) == type_index[0])
     for type_i in type_index:
         result_index = result_index | (np.array(s_type)==type_i)    

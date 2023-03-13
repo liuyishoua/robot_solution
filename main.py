@@ -343,10 +343,7 @@ def dis_wall(robot_id):
 
 
 def move_target(r_distance, workstations, robots):
-    # Setting the angle and speed for each robot.
-    # Only ensure the + or - for angle
     for robot_id in range(len(robots)):
-        # If station target = -1, how to do ???
         station_target = r_next[robot_id]
         delta_x = workstations[station_target]["x"] - robots[robot_id]['x']
         delta_y = workstations[station_target]["y"] - robots[robot_id]['y']
@@ -357,7 +354,6 @@ def move_target(r_distance, workstations, robots):
         ex2 = np.exp(-delta_direction)
         r_action[robot_id][1] = np.pi * (ex - ex2) / (ex + ex2)
         # r_action[robot_id][1] = delta_direction
-        # Always the maximum speed in positive
         eps = 2
         if abs(delta_direction) > np.pi / 4:
             r_action[robot_id][0] = 0
@@ -390,6 +386,51 @@ def evade_crash(robots, robot_i, robot_j):
     #     r_action[robot_i][1] = 0.5 * np.pi
     #     r_action[robot_j][1] = - 0.5 * np.pi
 
+    # # 碰撞物理模拟, robot i 1帧后，是顺时针的方向还是逆时针的方向离robot j更近。我们想要更远的时针，作为i的角速度方向
+    # during_frame = 1
+    # second = (during_frame) * 0.02
+    # # 判断机器人 i 向哪个时针旋转，以躲避 j
+    # robot_i_shun = robots[robot_i]['direction'] + delta_theta
+    # robot_i_ni = robots[robot_i]['direction'] - delta_theta
+
+    # v1 = np.sqrt(np.square(robots[robot_i]['x_line_speed']) + np.square(robots[robot_i]['y_line_speed']))
+
+    # x_shun = robots[robot_i]['x'] + v1 * np.cos(robot_i_shun) * second
+    # y_shun = robots[robot_i]['y'] + v1 * np.sin(robot_i_shun) * second
+    # x_ni = robots[robot_i]['x'] + v1 * np.cos(robot_i_ni) * second
+    # y_ni = robots[robot_i]['y'] + v1 * np.sin(robot_i_ni) * second
+
+    # delta_distance_shun = np.square(x_shun - robots[robot_j]['x']) + np.square(y_shun - robots[robot_j]['y'])
+    # delta_distance_ni = np.square(x_ni - robots[robot_j]['x']) + np.square(y_ni - robots[robot_j]['y'])
+    # if delta_distance_shun > delta_distance_ni:
+    #     r_action[robot_i][1] = robot_i_shun
+    # elif delta_distance_shun < delta_distance_ni:
+    #     r_action[robot_i][1] = robot_i_ni
+
+
+    # # 判断机器人 i 向哪个时针旋转，以躲避 j
+    # robot_j_shun = robots[robot_j]['direction'] + delta_theta
+    # robot_j_ni = robots[robot_j]['direction'] - delta_theta
+
+    # v2 = np.sqrt(np.square(robots[robot_j]['x_line_speed']) + np.square(robots[robot_j]['y_line_speed']))
+
+    # x_shun = robots[robot_j]['x'] + v2 * np.cos(robot_j_shun) * second
+    # y_shun = robots[robot_j]['y'] + v2 * np.sin(robot_j_shun) * second
+    # x_ni = robots[robot_j]['x'] + v2 * np.cos(robot_j_ni) * second
+    # y_ni = robots[robot_j]['y'] + v2 * np.sin(robot_j_ni) * second
+
+    # delta_distance_shun = np.square(x_shun - robots[robot_i]['x']) + np.square(y_shun - robots[robot_i]['y'])
+    # delta_distance_ni = np.square(x_ni - robots[robot_i]['x']) + np.square(y_ni - robots[robot_i]['y'])
+    # if delta_distance_shun > delta_distance_ni:
+    #     r_action[robot_j][1] = robot_j_shun
+    # elif delta_distance_shun < delta_distance_ni:
+    #     r_action[robot_j][1] = robot_j_ni
+
+    # r_action[robot_i][0] = 0 
+    # r_action[robot_i][1] = 0
+    # r_action[robot_j][0] = 0
+    # r_action[robot_j][1] = 0
+
 def if_crash(robots, robot_i, robot_j, frame=100):
     ''' 将会发生碰撞返回true, 否则返回false
     '''
@@ -413,6 +454,115 @@ def if_crash(robots, robot_i, robot_j, frame=100):
             return True
     return False
 
+def get_material_locked(workstations):
+    '''获取所有工作站的信息,获取被死锁了的材料。(即该材料类被没有工作站能接收去放)
+    '''
+    # 材料有1-7个类别。设立空的set集合，遍历station，找到所有空缺的材料类别添加到set里面。
+    # set集合中没有1-7的哪个类别，哪个类别就被锁住了。
+    have_material = set()
+    for i, station in enumerate(workstations):
+        # 输入的工作台类别只能是4,5,6,7,8,9, 这种收购类型的工作台
+        if station["type"] in [4,5,6,7,8,9]:
+            material_list = find_materials_id(station["type"], station['m_state'])
+            for material in material_list:
+                have_material.add(material)
+    
+    # have material中没有的元素
+    result = set([1,2,3,4,5,6,7]) - have_material
+    return list(result)
+
+def get_locked_station(workstations, product):
+    '''输入类别,获取锁住的所有工作台id。并按找优先级排序 (只要一个材料就能解锁的无疑拥有更高的优先级)。
+    '''
+    locked_station = []
+    if product == 1:
+        for i, station in enumerate(workstations):
+            if station['type'] in [4,5,9]:
+                locked_station.append(i)
+    elif product == 2:
+        for i, station in enumerate(workstations):
+            if station['type'] in [4,6,9]:
+                locked_station.append(i)
+    elif product == 3:
+        for i, station in enumerate(workstations):
+            if station['type'] in [5,6,9]:
+                locked_station.append(i)
+    elif product == 4 or product == 5 or product == 6:
+        for i, station in enumerate(workstations):
+            if station['type'] in [7,9]:
+                locked_station.append(i)
+    elif product == 7:
+        for i, station in enumerate(workstations):
+            if station['type'] in [8,9]:
+                locked_station.append(i)
+    return locked_station
+
+def get_material_class(workstations, locked_station):
+    # 获取锁住的工作站，完成解锁（或者说完成合成），所需材料类别。
+    material_class = set()
+    for index in locked_station:
+        material_list = find_materials_id(workstations[index]["type"], workstations[index]['m_state'])
+        for material in material_list:
+            material_class.add(material)
+    return list(material_class)
+
+def lock_remove(workstations, robots):
+    # 解除死锁。给非死锁的空闲机器人以及非死锁的有材料的机器人，更新靶工作站。
+    # 1. 机器人判断：哪几个机器人死锁（手上有材料，但是没地方卖）。如果没死锁，分为空闲的机器人和手上有材料的机器人。
+    # 2. 根据死锁的机器人手上拿的材料找到 需要解锁的工作站，获取index list。
+    # 3. 获取待解锁的工作站，所需解锁的材料 list。
+    # 4. 空闲机器人去找解除 “死锁工作站所需的材料”；非空闲机器人则判断自己手上的材料是否能用于解除死锁工作站，如果能，则改方向去死锁工作站
+    locked_robot_index = []
+    free_robot_index = []
+    material_robot_index = []
+
+    locked_station_index = [] # 锁住的工作站
+    locked_station_need_material = [] # 解锁，锁住的工作站所需的材料
+    # 获取每一帧，物品 1-7, 哪个类别物品锁住了。
+    material_locked_list = get_material_locked(workstations)
+    for robot_id in range(len(robots)):
+        product = robots[robot_id]["if_product"]
+        if product == 0:
+            free_robot_index.append(robot_id)
+        elif product in material_locked_list:
+            # 判断机器人的产品是否有材料位，可以接收。
+            # 如果没有材料位可以接收，则找到那些材料位置满，所以锁住了的工作站，获取index list。
+            # 并获取锁住的工作站，解锁所需的材料
+            locked_robot_index.append(robot_id)
+        else:
+            # 如果有材料位可以接收
+            material_robot_index.append(robot_id)
+            
+    for locked_material in material_locked_list:
+        # 输入索住物品类别，获取相应锁住了的工作站 index list。
+        # 并获取锁住了工作台的优先级，到时候for循环优先解锁。
+        locked_station_index = get_locked_station(workstations, product)
+        # 获取锁住的工作站，完成解锁（或者说完成合成），所需材料类别。
+        locked_station_need_material = get_material_class(workstations, locked_station_index)
+    
+    # 空闲的机器人和不空闲但有材料的机器人要开始解锁了。解锁工作台
+    # 空闲的机器人下一个target节点，是解锁工作站所需材料。材料也需要有优先级。
+    for free_robot in free_robot_index:
+
+        r_distance_with_index = [[distance, index] for index, distance in enumerate(r_distance[robot_id])]
+        r_distance_with_index_sorted = sorted(r_distance_with_index, key=lambda x: x[0])
+        # 输入机器人所需材料类别 list，获取相应的工作台 list
+        station_index = stationtype_index(s_type, locked_station_need_material)
+        index_list_with_product = have_product_index(workstations, station_index)  # 获取有产品的工作站的 index
+        
+        # 在工作台 list 中找到，距离最近有产品的工作台.
+        for index in r_distance_with_index_sorted:
+            if index in index_list_with_product and index not in r_next:
+                r_next[robot_id] = index
+                break
+
+    # 有材料的机器人且没死锁的，如果材料对的上，就去解锁指定工作站。否则不执行任何操作。
+    for material_robot in material_robot_index:
+        product = robots[material_robot]['if_product']
+        for station_index in locked_station_index:
+            if product in find_materials_id(workstations[station_index]["type"], workstations[station_index]['m_state']) and station_index not in r_next :
+                r_next[material_robot] = station_index
+                break
 
 def handle_module(workstations, robots, frame_id, money):
     # Maintain the distance for each robot and s_type for stations.
@@ -422,6 +572,9 @@ def handle_module(workstations, robots, frame_id, money):
     # And speed and angle speed for each robot.
     find_target(r_distance, r_priority, workstations, robots)
     move_target(r_distance, workstations, robots)
+
+    # 解除死锁
+    lock_remove(workstations, robots)
 
     # Check and update buy, sell, destroy action for each robot.
     check_action(workstations, robots)
@@ -454,13 +607,13 @@ def respond_module():
 # station_work_time = [50, 50, 50, 500, 500, 500, 1000, 1, 1]
 # Action mapping
 # action_list = ["forward", "rotate", "buy", "sell", "destroy"]
-# The distance robot to each station. Type list[list[]]
+# 每个机器人与工作台之间的距离. 类型 list[list[]]，shape是（4，工作台的个数）
 r_distance = []
 # 两两机器人之间的距离
 r_r_distance = []
 # 执行碰撞检测的最小距离
 crash_distance = 5
-# K station type
+# 工作台的类型list
 s_type = []
 # The next target station for robot i. Length 4.
 r_next = [-1, -1, -1, -1]
