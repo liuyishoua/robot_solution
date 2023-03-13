@@ -143,12 +143,18 @@ def is_materials_3only2_rest(m_type):
 
 # 给一个产品，判断当前是否有空格
 def is_materials_rest(m_type):
-    res = 0
+    count = 0
     for station_id in range(len(workstations)):
         rest_materials = find_materials_id(workstations[station_id]['type'], workstations[station_id]['m_state'])
         if m_type in rest_materials:
-            res = 1
-    return res
+            count += 1
+    for robot_id in range(len(robots)):
+        if robots[robot_id]['if_product'] == m_type:
+            count -= 1
+    if count >= 1:
+        return 1
+    else:
+        return 0
 
 
 # 给一个工作台id，判断他生产的产品当前是否卖得掉
