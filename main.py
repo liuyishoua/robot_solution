@@ -74,25 +74,27 @@ def maintain_varible(workstations, robots):
 
         # 补2缺1
         if is_materials_2only1_rest(workstations[station_id]['type']):
-            priority = 40
+            priority = 20
         # 补3缺2
         if is_materials_3only2_rest(workstations[station_id]['type']):
             priority = 15
         # 补3缺1
         if is_materials_3only1_rest(workstations[station_id]['type']):
-            priority = 50
+            priority = 30
 
         if workstations[station_id]['type'] in [4, 5, 6]:
-            priority = 20
+            priority = 40
 
         if workstations[station_id]['type'] in [7]:
-            priority = 20
+            priority = 50
 
-        for robot_id in range(len(robots)):
-            if robots[robot_id]['if_product'] == workstations[station_id]['type']:
-                priority -= 1
+        # for robot_id in range(len(robots)):
+        #     if robots[robot_id]['if_product'] == workstations[station_id]['type']:
+        #         priority -= 1
 
         if is_station_rest(station_id) == 0:
+            priority = 0
+        if workstations[station_id]['p_state'] == 0:
             priority = 0
         r_priority.append(priority)
 
@@ -166,10 +168,9 @@ def check_action(workstations, robots):
     # Check for buy, sell, destroy for each robot.
     for robot_id in range(len(robots)):
         target_station = r_next[robot_id]
-        # If robot arrive the target station
         robot_in_station = robots[robot_id]["if_station"]
         if robots[robot_id]["if_station"] == target_station:
-            r_order[robot_id] = 0  # 这里处理完订单后r_order设置为0，寻找下一个订单
+            # 这里处理完订单后r_order设置为0，寻找下一个订单
             # 检查买卖，都是直接行为。机器人有产品就卖，没产品就买。
             if robots[robot_id]["if_product"] != 0:
                 # 可做判断。能否卖。
@@ -179,11 +180,12 @@ def check_action(workstations, robots):
                 if robots[robot_id]["if_product"] in material_id:
                     # 可卖成功
                     r_action[robot_id][3] = target_station
+                    r_order[robot_id] = 0
                 else:
                     for station_id in range(len(workstations)):
                         rest_materials = find_materials_id(workstations[station_id]['type'], workstations[station_id]['m_state'])
                         if robots[robot_id]["if_product"] in rest_materials:
-                            r_action[robot_id][3] = station_id
+                            r_next[robot_id] = station_id
                             break
 
                     # destory非 -1 都能执行
@@ -193,11 +195,14 @@ def check_action(workstations, robots):
             else:
                 # 能否成功买，不用判断
                 r_action[robot_id][2] = target_station
+                r_order[robot_id] = 0
+
 
 
 def find_target(r_distance, r_priority, workstations, robots):
     for robot_id in range(len(robots)):
         if r_order[robot_id] == 0:  # 如果当前机器人没有靶订单，则设置靶订单
+            r_order[robot_id] = 1
             r_distance_with_index = [[distance, index] for index, distance in enumerate(r_distance[robot_id])]
             r_distance_with_index_sorted = sorted(r_distance_with_index, key=lambda x: x[0])
 
@@ -269,22 +274,35 @@ def find_target(r_distance, r_priority, workstations, robots):
             #             if index in index_list_with_material and index not in r_next:
             #                 r_next[robot_id] = index
             #                 break
-            # r_order[robot_id] = 1
 
             # r_priority_with_index = [[priority, index] for index, priority in enumerate(r_priority)]
-            r_priority_with_index_sorted = np.argsort(-np.array(r_priority))
+            # r_priority_with_index_sorted = np.argsort(-np.array(r_priority))
 
-
+            r_priority = np.array(r_priority)
             if robots[robot_id]['if_product'] == 0:
                 # log.write_object(workstations)
                 # log.write_list(s_type)
                 index_list = stationtype_index(s_type, [1, 2, 3, 4, 5, 6, 7])  # 获取工作站类型的 index
                 index_list_with_product = have_product_index(workstations, index_list)  # 获取有产品的工作站的 index
                 # 4，5，6，7 工作台是否有货，有则买；否则买 1，2，3 工作台。//如果工作台都没货，之后考虑（基本不存在这种情况，因为1，2，3工作台更新很快）
-                for index in r_priority_with_index_sorted:
-                    if index in index_list_with_product and index not in r_next:
-                        r_next[robot_id] = index
-                        break
+                index_list = []
+                max_priority = np.max(r_priority)
+                min_distance = 9999
+                r_next_cur = -1
+                for i in range(len(r_priority)):
+                    if r_priority[i] == max_priority:
+                        if r_distance[robot_id][i] < min_distance and i not in r_next:
+                            min_distance = r_distance[robot_id][i]
+                            r_next[robot_id] = i
+                # r_next[robot_id] = r_next_cur
+
+                # r_priority_with_index_sorted = np.argsort(-np.array(r_priority))
+                # index_list = stationtype_index(s_type, [1, 2, 3, 4, 5, 6, 7])  # 获取工作站类型的 index
+                # index_list_with_product = have_product_index(workstations, index_list)  # 获取有产品的工作站的 index
+                # for index in r_priority_with_index_sorted:
+                #     if index in index_list_with_product and index not in r_next:
+                #         r_next[robot_id] = index
+                #         break
 
             else:
                 # 当前机器人有货物在手，要卖给工作台
@@ -333,7 +351,6 @@ def find_target(r_distance, r_priority, workstations, robots):
                         if index in index_list_with_material and index not in r_next:
                             r_next[robot_id] = index
                             break
-            r_order[robot_id] = 1
 
 
 def dis_wall(robot_id):
@@ -353,9 +370,10 @@ def move_target(r_distance, workstations, robots):
         ex = np.exp(delta_direction)
         ex2 = np.exp(-delta_direction)
         r_action[robot_id][1] = np.pi * (ex - ex2) / (ex + ex2)
+
         # r_action[robot_id][1] = delta_direction
         eps = 2
-        if abs(delta_direction) > np.pi / 4:
+        if abs(delta_direction) > 0.1:
             r_action[robot_id][0] = 0
         else:
             if dis_wall(robot_id) < eps:
@@ -377,8 +395,8 @@ def move_target(r_distance, workstations, robots):
                     evade_crash(robots, robot_id, robot_j)
                     # pass
 def evade_crash(robots, robot_i, robot_j):
-    r_action[robot_i][0] = -2
-    r_action[robot_i][1] = - np.sign(r_action[robot_i][1]) * np.pi
+    r_action[robot_j][0] = -2
+    r_action[robot_j][1] = - np.sign(r_action[robot_j][1]) * np.pi
     # if r_action[robot_i][0] > r_action[robot_j][0]:
     #     pass
     # else:
@@ -441,7 +459,7 @@ def if_crash(robots, robot_i, robot_j, frame=100):
     radius_i = 0.53 if robots[robot_i]['if_product'] else 0.45
     radius_j = 0.53 if robots[robot_j]['if_product'] else 0.45
     distance = radius_i + radius_j
-    during_frame = 5
+    during_frame = 1
     for i in range(int(frame / during_frame)):
         second = ((i + 1) * during_frame) * 0.02
         v1 = np.sqrt(np.square(robots[robot_i]['x_line_speed']) + np.square(robots[robot_i]['y_line_speed']))
@@ -574,7 +592,7 @@ def handle_module(workstations, robots, frame_id, money):
     move_target(r_distance, workstations, robots)
 
     # 解除死锁
-    lock_remove(workstations, robots)
+    # lock_remove(workstations, robots)
 
     # Check and update buy, sell, destroy action for each robot.
     check_action(workstations, robots)
@@ -585,7 +603,7 @@ def respond_module():
     # line_speed, angle_speed = 3, 1.5
     for robot_id in range(4):
         line_speed, angle_speed, buy, sell, destroy = r_action[robot_id]
-        if frame_id > 8500:
+        if frame_id > 8650:
             buy = -1
         sys.stdout.write('forward %d %d\n' % (robot_id, line_speed))
         sys.stdout.write('rotate %d %f\n' % (robot_id, angle_speed))
@@ -612,7 +630,7 @@ r_distance = []
 # 两两机器人之间的距离
 r_r_distance = []
 # 执行碰撞检测的最小距离
-crash_distance = 5
+crash_distance = 2
 # 工作台的类型list
 s_type = []
 # The next target station for robot i. Length 4.
