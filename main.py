@@ -2,7 +2,6 @@ import sys
 from utils import have_material_type, find_materials_id, stationtype_index, have_product_index, have_material_index
 import numpy as np
 
-# 本地图跑 ，图一，二，三，四，分别为55w，45w, 18w, 44w
 from log import Log
 log = Log()
 
