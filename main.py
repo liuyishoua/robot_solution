@@ -72,21 +72,20 @@ def maintain_varible(workstations, robots):
     for station_id in range(len(workstations)):
         priority = 10
 
-        # 补2缺1
-        if is_materials_2only1_rest(workstations[station_id]['type']):
-            priority = 20
-        # 补3缺2
-        if is_materials_3only2_rest(workstations[station_id]['type']):
-            priority = 15
-        # 补3缺1
-        if is_materials_3only1_rest(workstations[station_id]['type']):
-            priority = 30
-
         if workstations[station_id]['type'] in [4, 5, 6]:
-            priority = 40
+            priority = 20
 
         if workstations[station_id]['type'] in [7]:
-            priority = 50
+            priority = 30
+        # 补2缺1
+        if is_materials_2only1_rest(workstations[station_id]['type']):
+            priority += 10
+        # 补3缺2
+        if is_materials_3only2_rest(workstations[station_id]['type']):
+            priority += 5
+        # 补3缺1
+        if is_materials_3only1_rest(workstations[station_id]['type']):
+            priority += 20
 
         # for robot_id in range(len(robots)):
         #     if robots[robot_id]['if_product'] == workstations[station_id]['type']:
