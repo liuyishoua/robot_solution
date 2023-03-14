@@ -2,7 +2,7 @@ import sys
 from utils import have_material_type, find_materials_id, stationtype_index, have_product_index, have_material_index
 import numpy as np
 
-#
+# 本地图跑 ，图一，二，三，四，分别为55w，45w, 18w, 44w
 # from log import Log
 # log = Log()
 
@@ -489,30 +489,24 @@ def get_material_locked(workstations):
     result = set([1,2,3,4,5,6,7]) - have_material
     return list(result)
 
-def get_locked_station(workstations, product):
+def get_locked_station(workstations, product_list):
     '''输入类别,获取锁住的所有工作台id。并按找优先级排序 (只要一个材料就能解锁的无疑拥有更高的优先级)。
+    输入产品类别数组，获取锁住的所有工作台
     '''
     locked_station = []
-    if product == 1:
-        for i, station in enumerate(workstations):
-            if station['type'] in [4,5,9]:
-                locked_station.append(i)
-    elif product == 2:
-        for i, station in enumerate(workstations):
-            if station['type'] in [4,6,9]:
-                locked_station.append(i)
-    elif product == 3:
-        for i, station in enumerate(workstations):
-            if station['type'] in [5,6,9]:
-                locked_station.append(i)
-    elif product == 4 or product == 5 or product == 6:
-        for i, station in enumerate(workstations):
-            if station['type'] in [7,9]:
-                locked_station.append(i)
-    elif product == 7:
-        for i, station in enumerate(workstations):
-            if station['type'] in [8,9]:
-                locked_station.append(i)
+
+    for i, station in enumerate(workstations):
+        if 1 in product_list and station['type'] in [4,5,9]:
+            locked_station.append(i)
+        elif 2 in product_list and station['type'] in [4,6,9]:
+            locked_station.append(i)
+        elif 3 in product_list and station['type'] in [5,6,9]:
+            locked_station.append(i)
+        elif (4 in product_list or 5 in product_list or 6 in product_list) and station['type'] in [7,9]:
+            locked_station.append(i)
+        elif 7 in product_list and station['type'] in [8,9]:
+            locked_station.append(i)
+        
     return locked_station
 
 def get_material_class(workstations, locked_station):
@@ -536,8 +530,10 @@ def lock_remove(workstations, robots):
 
     locked_station_index = [] # 锁住的工作站
     locked_station_need_material = [] # 解锁，锁住的工作站所需的材料
+
     # 获取每一帧，物品 1-7, 哪个类别物品锁住了。
     material_locked_list = get_material_locked(workstations)
+    robot_material_locked_list = []
     for robot_id in range(len(robots)):
         product = robots[robot_id]["if_product"]
         if product == 0:
@@ -547,40 +543,74 @@ def lock_remove(workstations, robots):
             # 如果没有材料位可以接收，则找到那些材料位置满，所以锁住了的工作站，获取index list。
             # 并获取锁住的工作站，解锁所需的材料
             locked_robot_index.append(robot_id)
+            robot_material_locked_list.append(product)
         else:
             # 如果有材料位可以接收
             material_robot_index.append(robot_id)
-            
-    for locked_material in material_locked_list:
-        # 输入索住物品类别，获取相应锁住了的工作站 index list。
-        # 并获取锁住了工作台的优先级，到时候for循环优先解锁。
-        locked_station_index = get_locked_station(workstations, product)
-        # 获取锁住的工作站，完成解锁（或者说完成合成），所需材料类别。
-        locked_station_need_material = get_material_class(workstations, locked_station_index)
+
+    # log.write_string(f"当前时间：{frame_id/50} 秒，被锁住的机器人的index：{locked_robot_index}; 它相应的被锁住的材料位置：{robot_material_locked_list}")
+    # log.write_string(f"空闲机器人的index：{free_robot_index}")
+    # log.write_string(f"有材料但是没被锁住的机器人：{material_robot_index}；")   
     
+    # 输入索住物品类别，获取相应锁住了的工作站 index list。
+    # 并获取锁住了工作台的优先级，到时候for循环优先解锁。
+    locked_station_index = get_locked_station(workstations, robot_material_locked_list)
+    # 获取锁住的工作站，完成解锁（或者说完成合成），所需材料类别。
+    locked_station_need_material = get_material_class(workstations, locked_station_index)
+    # log.write_string(f"被锁住工作站所需的解锁材料，{locked_station_need_material}；")
+    
+    # 输入机器人所需材料类别 list，获取相应的工作台 list
+    station_index = stationtype_index(s_type, locked_station_need_material)
+    # log.write_string(f"被锁住工作站所需的解锁材料，能生产解锁材料的工作站index，{station_index}；")
+    index_list_with_product = have_product_index(workstations, station_index)  # 获取有产品的工作站的 index
+    # log.write_string(f"被锁住工作站所需的解锁材料，能供应解锁材料的工作站index，{index_list_with_product}；")
+
     # 空闲的机器人和不空闲但有材料的机器人要开始解锁了。解锁工作台
     # 空闲的机器人下一个target节点，是解锁工作站所需材料。材料也需要有优先级。
     for free_robot in free_robot_index:
+        # r_distance_with_index = [[distance, index] for index, distance in enumerate(r_distance[robot_id])]
+        # r_distance_with_index_sorted = sorted(r_distance_with_index, key=lambda x: x[0])
 
-        r_distance_with_index = [[distance, index] for index, distance in enumerate(r_distance[robot_id])]
-        r_distance_with_index_sorted = sorted(r_distance_with_index, key=lambda x: x[0])
-        # 输入机器人所需材料类别 list，获取相应的工作台 list
-        station_index = stationtype_index(s_type, locked_station_need_material)
-        index_list_with_product = have_product_index(workstations, station_index)  # 获取有产品的工作站的 index
-        
-        # 在工作台 list 中找到，距离最近有产品的工作台.
-        for index in r_distance_with_index_sorted:
-            if index in index_list_with_product and index not in r_next:
-                r_next[robot_id] = index
-                break
+        # 如果空手的机器人没单，则找能解锁工作台的新单
+        if r_order[free_robot] == 0:
+            for index in index_list_with_product:
+                if index not in r_next:
+                    r_next[free_robot] = index
+                    r_order[free_robot] = 1
+                    break
+        elif r_order[free_robot] == 1:
+            # 如果空闲机器手里有单，则判断是不是去找解锁工作站所需材料单
+            # 如果不是，则换单；如果是，则不执行行为
+            if workstations[r_next[free_robot]]['type'] not in locked_station_need_material:
+                for index in index_list_with_product:
+                    if index not in r_next:
+                        r_next[free_robot] = index
+                        break
 
     # 有材料的机器人且没死锁的，如果材料对的上，就去解锁指定工作站。否则不执行任何操作。
     for material_robot in material_robot_index:
         product = robots[material_robot]['if_product']
-        for station_index in locked_station_index:
-            if product in find_materials_id(workstations[station_index]["type"], workstations[station_index]['m_state']) and station_index not in r_next :
-                r_next[material_robot] = station_index
-                break
+        
+        # 如果有材料的机器人没单，则看看该材料能不能解锁被锁住的工作站
+        # 如果能解锁，则派单。不能解锁，则继续完成当前订单。
+        if r_order[material_robot] == 0:
+            for station_index in locked_station_index: # 遍历锁住了的工作站
+                # 如果有材料机器人拿着的材料，能被锁住了的工作站收购，那就让有材料的机器人去那个工作站。
+                if product in find_materials_id(workstations[station_index]["type"], workstations[station_index]['m_state']) and station_index not in r_next:
+                    r_next[material_robot] = station_index
+                    r_order[material_robot] = 1
+                    break
+        elif r_order[material_robot] == 1:
+            # 如果有材料的机器人有单，则看该材料能不能解锁被锁住的工作站
+            # 如果能，则判断它的去是不是锁住的工作站，是则不进行操作；不是则，改变派单
+            # 如果不能，则不进行任何操作
+            if product in locked_station_need_material:
+                if r_next[material_robot] not in locked_station_index:
+                    for station_index in locked_station_index: 
+                        if product in find_materials_id(workstations[station_index]["type"], workstations[station_index]['m_state']) and station_index not in r_next:
+                            r_next[material_robot] = station_index
+                            break
+    # log.write_string(f"\n")
 
 def handle_module(workstations, robots, frame_id, money):
     # Maintain the distance for each robot and s_type for stations.
@@ -592,7 +622,7 @@ def handle_module(workstations, robots, frame_id, money):
     move_target(r_distance, workstations, robots)
 
     # 解除死锁
-    # lock_remove(workstations, robots)
+    lock_remove(workstations, robots)
 
     # Check and update buy, sell, destroy action for each robot.
     check_action(workstations, robots)
