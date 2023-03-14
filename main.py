@@ -79,22 +79,25 @@ def maintain_varible(workstations, robots):
     r_priority = []
     # Compute priority from station
     for station_id in range(len(workstations)):
-        priority = 10
+        priority = workstations[station_id]['type'] * 10
+        if workstations[station_id]['type'] == 4:
+            priority = 400
+        if workstations[station_id]['type'] == 5:
+            priority = 600
+        if workstations[station_id]['type'] == 6:
+            priority = 600
+        if workstations[station_id]['type'] == 7:
+            priority = 10000
 
-        if workstations[station_id]['type'] in [4, 5, 6]:
-            priority = 20
-
-        if workstations[station_id]['type'] in [7]:
-            priority = 30
         # 补2缺1
         if is_materials_2only1_rest(workstations[station_id]['type']):
-            priority += 10
+            priority += 200
         # 补3缺2
         if is_materials_3only2_rest(workstations[station_id]['type']):
-            priority += 5
+            priority += 300
         # 补3缺1
         if is_materials_3only1_rest(workstations[station_id]['type']):
-            priority += 20
+            priority += 300
 
         for robot_id in range(len(robots)):
             if robots[robot_id]['if_product'] == workstations[station_id]['type']:
@@ -228,7 +231,7 @@ def find_target(r_distance, r_priority, workstations, robots):
                 r_next_cur = -1
                 for i in range(len(r_priority)):
                     if r_priority[i] == max_priority:
-                        if r_distance[robot_id][i] < min_distance and i not in r_next:
+                        if r_distance[robot_id][i] < min_distance and i not in r_next and workstations[i]['p_state'] == 1:
                             min_distance = r_distance[robot_id][i]
                             r_next[robot_id] = i
 
@@ -247,43 +250,79 @@ def find_target(r_distance, r_priority, workstations, robots):
                     index_list = stationtype_index(s_type, [4, 5, 9])  # 获取工作站类型的 index
                     index_list_with_material = have_material_index(workstations, index_list,
                                                                    product_id)  # 获取有材料为空缺的工作站的 index。
-                    for _, index in r_distance_with_index_sorted:  # 这部分代码速度可以提升
-                        if index in index_list_with_material and index not in np.array(r_next)[
-                            [i for i in range(4) if i not in locked_robots]]:
+                    flag = 0
+                    for index in index_list:
+                        rest_materials = find_materials_id(type, workstations[index]['m_state'])
+                        if product_id in rest_materials and len(rest_materials) == 1:
                             r_next[robot_id] = index
+                            flag = 1
                             break
+                    if flag == 0:
+                        for _, index in r_distance_with_index_sorted:  # 这部分代码速度可以提升
+                            if index in index_list_with_material and index:
+                                r_next[robot_id] = index
+                                break
                 elif product_id == 2:
                     index_list = stationtype_index(s_type, [4, 6, 9])
                     index_list_with_material = have_material_index(workstations, index_list, product_id)
-                    for _, index in r_distance_with_index_sorted:
-                        if index in index_list_with_material and index not in np.array(r_next)[
-                            [i for i in range(4) if i not in locked_robots]]:
+                    flag = 0
+                    for index in index_list:
+                        rest_materials = find_materials_id(type, workstations[index]['m_state'])
+                        if product_id in rest_materials and len(rest_materials) == 1:
                             r_next[robot_id] = index
+                            flag = 1
                             break
+                    if flag == 0:
+                        for _, index in r_distance_with_index_sorted:  # 这部分代码速度可以提升
+                            if index in index_list_with_material and index:
+                                r_next[robot_id] = index
+                                break
                 elif product_id == 3:
                     index_list = stationtype_index(s_type, [5, 6, 9])
                     index_list_with_material = have_material_index(workstations, index_list, product_id)
-                    for _, index in r_distance_with_index_sorted:
-                        if index in index_list_with_material and index not in np.array(r_next)[
-                            [i for i in range(4) if i not in locked_robots]]:
+                    flag = 0
+                    for index in index_list:
+                        rest_materials = find_materials_id(type, workstations[index]['m_state'])
+                        if product_id in rest_materials and len(rest_materials) == 1:
                             r_next[robot_id] = index
+                            flag = 1
                             break
+                    if flag == 0:
+                        for _, index in r_distance_with_index_sorted:  # 这部分代码速度可以提升
+                            if index in index_list_with_material and index:
+                                r_next[robot_id] = index
+                                break
                 elif product_id == 4 or product_id == 5 or product_id == 6:
                     index_list = stationtype_index(s_type, [7, 9])
                     index_list_with_material = have_material_index(workstations, index_list, product_id)
-                    for _, index in r_distance_with_index_sorted:
-                        if index in index_list_with_material and index not in np.array(r_next)[
-                            [i for i in range(4) if i not in locked_robots]]:
+                    flag = 0
+                    for index in index_list:
+                        rest_materials = find_materials_id(type, workstations[index]['m_state'])
+                        if product_id in rest_materials and (len(rest_materials) == 1 or len(rest_materials) == 2):
                             r_next[robot_id] = index
+                            flag = 1
                             break
+                    if flag == 0:
+                        for _, index in r_distance_with_index_sorted:  # 这部分代码速度可以提升
+                            if index in index_list_with_material and index:
+                                r_next[robot_id] = index
+                                break
                 elif product_id == 7:
                     index_list = stationtype_index(s_type, [8, 9])
                     index_list_with_material = have_material_index(workstations, index_list, product_id)
-                    for _, index in r_distance_with_index_sorted:
-                        if index in index_list_with_material and index not in np.array(r_next)[
-                            [i for i in range(4) if i not in locked_robots]]:
+                    flag = 0
+                    for index in index_list:
+                        rest_materials = find_materials_id(type, workstations[index]['m_state'])
+                        if product_id in rest_materials and len(rest_materials) == 1:
                             r_next[robot_id] = index
+                            flag = 1
                             break
+                    if flag == 0:
+                        for _, index in r_distance_with_index_sorted:  # 这部分代码速度可以提升
+                            if index in index_list_with_material and index not in np.array(r_next)[
+                                [i for i in range(4) if i not in locked_robots]]:
+                                r_next[robot_id] = index
+                                break
 
 
 def dis_wall(robot_id):
