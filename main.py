@@ -77,13 +77,16 @@ def maintain_varible(workstations, robots):
     r_priority = []
     # Compute priority from station
     for station_id in range(len(workstations)):
-        priority = 10
+        priority = workstations[station_id]['type'] * 10
+        if workstations[station_id]['type'] == 4:
+            priority = 400
+        if workstations[station_id]['type'] == 5:
+            priority = 600
+        if workstations[station_id]['type'] == 6:
+            priority = 600
+        if workstations[station_id]['type'] == 7:
+            priority = 10000
 
-        if workstations[station_id]['type'] in [4, 5, 6]:
-            priority = 20
-
-        if workstations[station_id]['type'] in [7]:
-            priority = 30
         # 补2缺1
         if is_materials_2only1_rest(workstations[station_id]['type'], workstations):
             priority += 10
