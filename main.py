@@ -373,18 +373,19 @@ def move_target(r_distance, workstations, robots):
         # 判断那堵墙与机器人的距离小于eps，返回墙壁数组；左墙为1，下墙为2，右墙为3，上墙为4
         # 只有当机器人的方向朝向墙，才减速。
         eps = 2
+        theta = 0.1
         if 1 in dis_wall(robot_id, eps):
-            if robot_direction > np.pi / 2 and robot_direction < 3 * np.pi / 2:
+            if robot_direction > (np.pi / 2) + theta and robot_direction < 3 * np.pi / 2 - theta:
                 r_action[robot_id][0] = 2
         if 2 in dis_wall(robot_id, eps):
-            if robot_direction > np.pi and robot_direction < 2 * np.pi:
+            if robot_direction > np.pi + theta and robot_direction < 2 * np.pi - theta:
                 r_action[robot_id][0] = 2
         if 3 in dis_wall(robot_id, eps):
-            if (robot_direction >= 0 and robot_direction < np.pi / 2) or (
-                    robot_direction > 3 * np.pi / 2 and robot_direction < 2 * np.pi):
+            if (robot_direction >= 0 and robot_direction < np.pi / 2 - theta) or (
+                    robot_direction > 3 * np.pi / 2 + theta  and robot_direction < 2 * np.pi):
                 r_action[robot_id][0] = 2
         if 4 in dis_wall(robot_id, eps):
-            if robot_direction > 0 and robot_direction < np.pi:
+            if robot_direction > 0 + theta and robot_direction < np.pi - theta:
                 r_action[robot_id][0] = 2
 
     for robot_id in range(len(robots)):
@@ -555,6 +556,7 @@ def respond_module():
             sys.stdout.write('sell %d\n' % (robot_id))
         if destroy != -1:
             sys.stdout.write('destroy %d\n' % (robot_id))
+
 
 
 # 被锁住的机器人
