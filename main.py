@@ -45,7 +45,7 @@ def read_info():
                            "y_line_speed": y_line_speed, "direction": direction, "x": x, "y": y})
         robots.append(robot_dict)
         r_action[i][4] = -1
-
+    
     return workstations, robots, frame_num, money
 
 
@@ -75,6 +75,18 @@ def maintain_varible(workstations, robots):
             # 机器人有材料，且没地方放
             locked_robots.append(robot_id)
 
+    index_7 = stationtype_index(s_type, [7])
+    count_456 = [0, 0, 0]
+    for station in np.array(workstations)[index_7]:
+        if 4 in find_materials_id(7, station['m_state']):
+            count_456[0] += 1
+        if 5 in find_materials_id(7, station['m_state']):
+            count_456[1] += 1
+        if 6 in find_materials_id(7, station['m_state']):
+            count_456[2] += 1
+    # 还可添加调节因子进行优化，max_456 - min_456
+    max_456 = 0 if count_456[0] == count_456[1] and count_456[1] == count_456[2] else np.argmax(count_456) + 4
+
     r_priority = []
     # Compute priority from station
     for station_id in range(len(workstations)):
@@ -95,9 +107,11 @@ def maintain_varible(workstations, robots):
         if is_materials_3only1_rest(workstations[station_id]['type'], workstations):
             priority += 20
 
-        for robot_id in range(len(robots)):
-            if robots[robot_id]['if_product'] == workstations[station_id]['type']:
-                priority -= 20
+        # 去掉该模块性能提升 6w。机器人可以去同一个地方买，不应该设置优先级。
+        # 去掉是可以理解的。
+        # for robot_id in range(len(robots)):
+        #     if robots[robot_id]['if_product'] == workstations[station_id]['type']:
+        #         priority -= 20
 
         if is_station_rest(station_id, workstations, robots) == 0:
             priority = -9999
@@ -140,14 +154,17 @@ def maintain_varible(workstations, robots):
         if workstations[station_id]['type'] in [4, 5, 6] and material_num == 1:
             priority += 10
 
+        # 设置为10最稳定。需要该模块，减少碰撞。能提升大概5w左右
         for robot_id in range(len(robots)):
             if robots[robot_id]["if_product"] != 0:
                 if r_next[robot_id] == station_id:
                     priority -= 10
+        
+        # 地图中 7 工作台越少，解4，5，6锁的权重越大。添加后总计能提升3w。
+        if max_456 == workstations[station_id]['type']:
+            priority += 10 * (1/len(index_7))
 
-        # if max_456 == workstations[station_id]['type']:
-        #     priority += 18
-
+        # 目前发现对性能基本没有影响。因为1-6，死锁的问题基本没有了。
         # 提前解锁材料。1-6类别。7类别可以被工作台8接收，不会死锁。
         for material_type in material_locked_list:
             if workstations[station_id]["type"] in lock_type_list[material_type]:
@@ -299,6 +316,18 @@ def find_target(r_distance, r_priority, sell_priority, workstations, robots):
                             max_priority = prior
                             r_next[robot_id] = i
                             r_order[robot_id] = 1
+        elif r_order[robot_id] == 1: # 如果当前机器人有靶订单
+            station_id = r_next[robot_id]
+            if robots[robot_id]['if_product'] == 0:
+                # 机器人去买的时候，有可能买的没位置放。要做判断，机器按优先级换个工作站买
+                if is_station_rest(station_id, workstations, robots) == 0: # 如果发现没地方放了（当前物品类型被锁了），则按照优先级换单。
+                    r_order[robot_id] = 0
+            # else: # 机器人去卖的时候，如果没位置放，则按照优先级换个工作站卖
+            #     product_type = robots[robot_id]["if_product"]
+            #     if product_type not in find_materials_id(workstations[station_id]["type"], workstations[station_id]["m_state"]):
+            #         r_order[robot_id] = 0
+
+                
 
 
 def move_target(r_distance, workstations, robots):
