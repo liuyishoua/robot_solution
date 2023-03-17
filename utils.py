@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def have_material_type(num):
     '''例如48 (110000) 表示拥有物品 4 和 5。
     输入48, 返回数组 [4,5]
@@ -9,6 +10,7 @@ def have_material_type(num):
     # Create a list of the non-zero indices using a list comprehension
     have_material_type = [i for i, bit in enumerate(binary_string) if bit == '1']
     return have_material_type
+
 
 def find_materials_id(station_type, num):
     '''输入的工作台类别只能是4,5,6,7,8,9, 这种收购类型的工作台
@@ -44,9 +46,10 @@ def find_materials_id(station_type, num):
     elif station_type == 8:
         id_list.append(7)
     elif station_type == 9:
-        id_list = [1,2,3,4,5,6,7]
-    
+        id_list = [1, 2, 3, 4, 5, 6, 7]
+
     return id_list
+
 
 def stationtype_index(s_type, type_index, bool_flag=False):
     '''给定工作台的类型，获取相应的 index
@@ -57,11 +60,12 @@ def stationtype_index(s_type, type_index, bool_flag=False):
 
     result_index = (np.array(s_type) == type_index[0])
     for type_i in type_index:
-        result_index = result_index | (np.array(s_type)==type_i)
+        result_index = result_index | (np.array(s_type) == type_i)
     if bool_flag == False:
         result_index = [i for i in range(len(result_index)) if result_index[i]]
-    
+
     return result_index
+
 
 def have_product_index(workstations, index_list):
     result_index = []
@@ -70,13 +74,15 @@ def have_product_index(workstations, index_list):
             result_index.append(index_list[i])
     return result_index
 
+
 def have_material_index(workstations, index_list, product_id):
     result_index = []
     for i, station in enumerate(np.array(workstations)[index_list]):
-        material_list = find_materials_id(station['type'], station['m_state']) # 当前工作站还剩下的材料类别的空位
-        if product_id in material_list: # 如果机器人运送的物品，当前工作站刚好有空位
+        material_list = find_materials_id(station['type'], station['m_state'])  # 当前工作站还剩下的材料类别的空位
+        if product_id in material_list:  # 如果机器人运送的物品，当前工作站刚好有空位
             result_index.append(index_list[i])
     return result_index
+
 
 # 给一个产品，判断当前是否存在两个空一个的空格
 def is_materials_2only1_rest(m_type, workstations):
@@ -89,6 +95,7 @@ def is_materials_2only1_rest(m_type, workstations):
                 res = 1
     return res
 
+
 # 给一个产品，判断当前是否存在三个空一个的空格
 def is_materials_3only1_rest(m_type, workstations):
     res = 0
@@ -100,6 +107,7 @@ def is_materials_3only1_rest(m_type, workstations):
                 res = 1
     return res
 
+
 # 给一个产品，判断当前是否存在三个空两个的空格
 def is_materials_3only2_rest(m_type, workstations):
     res = 0
@@ -110,6 +118,7 @@ def is_materials_3only2_rest(m_type, workstations):
             if m_type in rest_materials and len(rest_materials) == 2:
                 res = 1
     return res
+
 
 # 给一个产品，判断当前是否有空格
 def is_materials_rest(m_type, workstations, robots):
@@ -126,9 +135,11 @@ def is_materials_rest(m_type, workstations, robots):
     else:
         return 0
 
+
 # 给一个工作台id，判断他生产的产品当前是否卖得掉
 def is_station_rest(station_id, workstations, robots):
     return is_materials_rest(workstations[station_id]['type'], workstations, robots)
+
 
 def get_material_class(workstations, locked_station):
     # 获取锁住的工作站，完成解锁（或者说完成合成），所需材料类别。
@@ -138,6 +149,7 @@ def get_material_class(workstations, locked_station):
         material_list = find_materials_id(workstations[index]["type"], workstations[index]['m_state'])
         material_class.append(material_list)
     return material_class
+
 
 def if_crash(robots, robot_i, robot_j, frame=100):
     ''' 将会发生碰撞返回true, 否则返回false
@@ -159,3 +171,12 @@ def if_crash(robots, robot_i, robot_j, frame=100):
         if np.square(x1 - x2) + np.square(y1 - y2) <= np.square(distance):
             return True
     return False
+
+def r_s_distance(robots, workstations):
+    r_s_dis = []
+    for robot_id in range(len(robots)):
+        dis = []
+        for station_id in range(len(workstations)):
+            dis.append(np.sqrt(np.square(robots[robot_id]['x'] - workstations[station_id]['x']) + np.square(robots[robot_id]['y'] - workstations[station_id]['y'])))
+        r_s_dis.append(dis)
+    return r_s_dis
