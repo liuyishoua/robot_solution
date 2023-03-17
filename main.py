@@ -72,7 +72,18 @@ def maintain_varible(workstations, robots):
         if product != 0 and product in material_locked_list:
             # 机器人有材料，且没地方放
             locked_robots.append(robot_id)
-
+    
+    # index_7 = stationtype_index(s_type, [7])
+    # count_456 = [0, 0, 0]
+    # for station in np.array(workstations)[index_7]:
+    #     if 4 in find_materials_id(7, station['m_state']):
+    #         count_456[0] += 1
+    #     if 5 in find_materials_id(7, station['m_state']):
+    #         count_456[1] += 1
+    #     if 6 in find_materials_id(7, station['m_state']):
+    #         count_456[2] += 1
+    # max_456 = np.argmax(count_456) + 4
+    
     r_priority = []
     # Compute priority from station
     for station_id in range(len(workstations)):
@@ -96,6 +107,13 @@ def maintain_varible(workstations, robots):
         for robot_id in range(len(robots)):
             if robots[robot_id]['if_product'] == workstations[station_id]['type']:
                 priority -= 20
+
+        # if max_456 == 4 and workstations[station_id]['type'] in [1,2]:
+        #     priority += 10
+        # elif max_456 == 5 and workstations[station_id]['type'] in [1,3]:
+        #     priority += 10
+        # elif max_456 == 6 and workstations[station_id]['type'] in [2,3]:
+        #     priority += 10
 
         if is_station_rest(station_id, workstations, robots) == 0:
             priority = 0
@@ -135,12 +153,14 @@ def maintain_varible(workstations, robots):
         # 补2缺1
         if workstations[station_id]['type'] in [4, 5, 6] and material_num == 1:
             priority += 10
-        
 
         for robot_id in range(len(robots)):
             if robots[robot_id]["if_product"] != 0:
                 if r_next[robot_id] == station_id:
                     priority -= 10
+
+        # if max_456 == workstations[station_id]['type']:
+        #     priority += 18
 
         # 提前解锁材料。1-6类别。7类别可以被工作台8接收，不会死锁。
         for material_type in material_locked_list:
@@ -324,25 +344,43 @@ def move_target(r_distance, workstations, robots):
         else:
             real_delta_direction = np.abs(delta_direction)
 
-        if delta_dis > 1.5:
-            # tanh映射前进速度
-            ex = np.exp(delta_dis)
-            ex2 = np.exp(-delta_dis)
+        # tanh映射角速度
+        ex = np.exp(real_delta_direction)
+        ex2 = np.exp(-real_delta_direction)
+
+        # 距离大于1.5，全程加速，角度微调
+        # 距离小于1.5，角度对准进行微调并加速，不准进行减速并大调角度
+        if delta_dis > 2:
             r_action[robot_id][0] = 6 
-            # tanh映射角速度
-            ex = np.exp(real_delta_direction)
-            ex2 = np.exp(-real_delta_direction)
             if abs(real_delta_direction) > 0.1:
                 r_action[robot_id][1] = np.pi if real_delta_direction >= 0 else -np.pi
             else:
                 r_action[robot_id][1] = np.pi * (ex - ex2) / (ex + ex2)
         else:
-            r_action[robot_id][0] = 1
-            r_action[robot_id][1] = np.pi if real_delta_direction >= 0 else -np.pi
-    
-        eps = 0.5
-        if dis_wall(robot_id) < eps:
-            r_action[robot_id][0] = 2
+            if abs(real_delta_direction) > 0.1:
+                # r_action[robot_id][0] = delta_dis
+                r_action[robot_id][0] = 0
+                r_action[robot_id][1] = np.pi if real_delta_direction >= 0 else -np.pi
+            else:
+                r_action[robot_id][0] = 6
+                r_action[robot_id][1] = np.pi * (ex - ex2) / (ex + ex2)
+
+        # 判断那堵墙与机器人的距离小于eps，返回墙壁数组；左墙为1，下墙为2，右墙为3，上墙为4
+        # 只有当机器人的方向朝向墙，才减速。
+        eps = 2
+        wall_index = dis_wall(robot_id, eps)
+        if 1 in dis_wall(robot_id, eps):
+            if robot_direction > np.pi/2 and robot_direction < 3*np.pi/2:
+                r_action[robot_id][0] = 2
+        if 2 in dis_wall(robot_id, eps):
+            if robot_direction > np.pi and robot_direction < 2*np.pi:
+                r_action[robot_id][0] = 2
+        if 3 in dis_wall(robot_id, eps):
+            if (robot_direction >= 0 and robot_direction < np.pi/2) or (robot_direction > 3*np.pi/2 and robot_direction < 2*np.pi):
+                r_action[robot_id][0] = 2
+        if 4 in dis_wall(robot_id, eps):
+            if robot_direction > 0 and robot_direction < np.pi:
+                r_action[robot_id][0] = 2
 
     for robot_id in range(len(robots)):
         for robot_j in range(len(robots)):
@@ -407,10 +445,13 @@ def r_next_pass(r_next, robots, workstations, robot_i, station_i, flag=0):
                     return False
     return True
 
-def dis_wall(robot_id):
+def dis_wall(robot_id, eps):
+    # 判断那堵墙与机器人的距离小于eps，返回墙壁数组
+    # 左墙为1，下墙为2，右墙为3，上墙为4
     dis = [robots[robot_id]['x'], 50 - robots[robot_id]['x'], robots[robot_id]['y'], 50 - robots[robot_id]['y']]
-    dis = np.array(dis)
-    return dis.min()
+
+    dis = [i+1 for i in range(4) if np.array(dis)[i] < eps]
+    return dis
 
 def handle_module(workstations, robots, frame_id, money):
     global r_action
