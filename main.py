@@ -350,7 +350,8 @@ def move_target(r_distance, workstations, robots):
 
         # 距离大于1.5，全程加速，角度微调
         # 距离小于1.5，角度对准进行微调并加速，不准进行减速并大调角度
-        if delta_dis > 2:
+        eps = 2
+        if delta_dis > eps:
             r_action[robot_id][0] = 6 
             if abs(real_delta_direction) > 0.1:
                 r_action[robot_id][1] = np.pi if real_delta_direction >= 0 else -np.pi
@@ -358,7 +359,7 @@ def move_target(r_distance, workstations, robots):
                 r_action[robot_id][1] = np.pi * (ex - ex2) / (ex + ex2)
         else:
             if abs(real_delta_direction) > 0.1:
-                # r_action[robot_id][0] = delta_dis
+                # r_action[robot_id][0] = delta_dis * (6 / eps)
                 r_action[robot_id][0] = 0
                 r_action[robot_id][1] = np.pi if real_delta_direction >= 0 else -np.pi
             else:
@@ -392,8 +393,65 @@ def move_target(r_distance, workstations, robots):
 
 
 def evade_crash(robots, robot_i, robot_j):
-    r_action[robot_j][0] = -2
-    r_action[robot_j][1] = - np.sign(r_action[robot_j][1]) * np.pi
+    # r_action[robot_j][0] = -2
+    # r_action[robot_j][1] = - np.sign(r_action[robot_j][1]) * np.pi
+
+    # 预测5帧，0.1s后机器人i的位置.机器人j根据0.1s后机器人i的位置，进行避让。
+    # 距离越近机器人j的速度越小。角度全开。
+    second = 0.1
+    v1 = np.sqrt(np.square(robots[robot_i]['x_line_speed']) + np.square(robots[robot_i]['y_line_speed']))
+    x1 = robots[robot_i]['x'] + v1 * np.cos(robots[robot_i]['direction']) * second
+    y1 = robots[robot_i]['y'] + v1 * np.sin(robots[robot_i]['direction']) * second
+
+    delta_x = x1 - robots[robot_j]['x']
+    delta_y = y1 - robots[robot_j]['y']
+    delta_dis = np.sqrt(np.square(delta_x) + np.square(delta_y))
+    direction = np.arctan2(np.abs(delta_y), np.abs(delta_x))
+    robot_direction = robots[robot_j]['direction']
+    # 角度换算为 0 - 2pi
+    if delta_x <= 0 and delta_y > 0:
+        direction = np.pi - direction
+    elif delta_x < 0 and delta_y <= 0:
+        direction = direction + np.pi
+    elif delta_x >= 0 and delta_y < 0:
+        direction = 2 * np.pi - direction
+    
+    if robot_direction < 0:
+        robot_direction = 2 * np.pi + robot_direction
+
+    delta_direction = robot_direction - direction
+    real_delta_direction = 0
+    # 区分象限，以机器人的坐标为 (0,0)
+    if delta_y > 0:
+        if delta_direction > 0 and delta_direction < np.pi:
+            real_delta_direction = - delta_direction
+        elif delta_direction >= np.pi:
+            real_delta_direction = 2 * np.pi - delta_direction
+        elif delta_direction <= 0:
+            real_delta_direction = -delta_direction
+    elif delta_y < 0:
+        if delta_direction > -np.pi and delta_direction < 0:
+            real_delta_direction = - delta_direction
+        elif delta_direction >= 0:
+            real_delta_direction = - delta_direction
+        elif delta_direction <= - np.pi:
+            real_delta_direction = -(2 * np.pi + delta_direction)
+    else:
+        real_delta_direction = np.abs(delta_direction)
+
+    # tanh映射角速度
+    ex = np.exp(real_delta_direction)
+    ex2 = np.exp(-real_delta_direction)
+
+    # 距离大于1.5，全程加速，角度微调
+    # 距离小于1.5，角度对准进行微调并加速，不准进行减速并大调角度
+    eps = 3
+    if delta_dis > eps:
+        r_action[robot_j][0] = 6
+        r_action[robot_j][1] = -np.pi if real_delta_direction >= 0 else np.pi
+    else:
+        r_action[robot_j][0] = delta_dis * (6/eps)
+        r_action[robot_j][1] = -np.pi if real_delta_direction >= 0 else np.pi
 
 
 def get_material_locked(workstations):
