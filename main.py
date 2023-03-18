@@ -3,7 +3,7 @@ from utils import *
 import numpy as np
 
 
-# 跑分279w，表现比较稳定均在70w左右。加入融合距离优先级建模，修改BUG。
+# 跑分290w，表现比较稳定均在70w左右。r_order修改三处，alpha=1.1。
 # from log import Log
 # log = Log()
 
@@ -45,7 +45,7 @@ def read_info():
                            "y_line_speed": y_line_speed, "direction": direction, "x": x, "y": y})
         robots.append(robot_dict)
         r_action[i][4] = -1
-    
+
     return workstations, robots, frame_num, money
 
 
@@ -119,7 +119,6 @@ def maintain_varible(workstations, robots):
         if workstations[station_id]['p_state'] == 0:
             priority = -9999
 
-
         # 帧数0，1-7都没有产品。因此开局有可能会去 4-7 拿产品
         if frame_id <= 50:
             if workstations[station_id]['type'] in [1, 2, 3]:
@@ -159,10 +158,10 @@ def maintain_varible(workstations, robots):
             if robots[robot_id]["if_product"] != 0:
                 if r_next[robot_id] == station_id:
                     priority -= 10
-        
+
         # 地图中 7 工作台越少，解4，5，6锁的权重越大。添加后总计能提升3w。
         if max_456 == workstations[station_id]['type']:
-            priority += 10 * (1/len(index_7))
+            priority += 10 * (1 / len(index_7))
 
         # 目前发现对性能基本没有影响。因为1-6，死锁的问题基本没有了。
         # 提前解锁材料。1-6类别。7类别可以被工作台8接收，不会死锁。
@@ -195,22 +194,23 @@ def check_action(workstations, robots):
                     r_action[robot_id][3] = target_station  # 成功卖，则设置下一个靶订单
                     r_order[robot_id] = 0
                 else:
+                    r_order[robot_id] = 0
                     # 不可卖成功，找其他可以卖的点。
-                    for station_id in range(len(workstations)):
-                        rest_materials = find_materials_id(workstations[station_id]['type'],
-                                                           workstations[station_id]['m_state'])
-                        if robots[robot_id]["if_product"] in rest_materials and r_next_pass(r_next, robots,
-                                                                                            workstations, robot_id,
-                                                                                            station_id, flag=1):
-                            r_next[robot_id] = station_id
-                            break
+                    # for station_id in range(len(workstations)):
+                    #     rest_materials = find_materials_id(workstations[station_id]['type'],
+                    #                                        workstations[station_id]['m_state'])
+                    #     if robots[robot_id]["if_product"] in rest_materials and r_next_pass(r_next, robots,
+                    #                                                                         workstations, robot_id,
+                    #                                                                         station_id, flag=1):
+                    #         r_next[robot_id] = station_id
+                    #         break
             else:
                 r_action[robot_id][2] = target_station
                 r_order[robot_id] = 0  # 成功买，则设置下一个靶订单
 
 
 def find_target(r_distance, r_priority, sell_priority, workstations, robots):
-    alpha = 1
+    alpha = 1.1
     r_s_dis = r_s_distance(robots, workstations)
     for robot_id in range(len(robots)):
         if r_order[robot_id] == 0:  # 如果当前机器人没有靶订单，则设置靶订单
@@ -222,10 +222,10 @@ def find_target(r_distance, r_priority, sell_priority, workstations, robots):
                 for i in range(len(r_priority)):
                     prior = r_priority[i] - alpha * r_s_dis[robot_id][i]
                     if prior > max_priority and r_next_pass(r_next, robots, workstations,
-                                                                                  robot_id, i, flag=0):
-                            max_priority = prior
-                            r_next[robot_id] = i
-                            r_order[robot_id] = 1
+                                                            robot_id, i, flag=0):
+                        max_priority = prior
+                        r_next[robot_id] = i
+                        r_order[robot_id] = 1
 
             else:
                 # 当前机器人有货物在手，要卖给工作台
@@ -246,8 +246,10 @@ def find_target(r_distance, r_priority, sell_priority, workstations, robots):
                     for i in range(len(sell_priority_copy)):
                         prior = sell_priority_copy[i] - alpha * r_s_dis[robot_id][i]
                         if prior > max_priority and product_id in find_materials_id(
-                                        workstations[i]['type'], workstations[i]['m_state']) and r_next_pass(r_next, robots, workstations,
-                                                                robot_id, i, flag=0):
+                                workstations[i]['type'], workstations[i]['m_state']) and r_next_pass(r_next, robots,
+                                                                                                     workstations,
+                                                                                                     robot_id, i,
+                                                                                                     flag=0):
                             max_priority = prior
                             r_next[robot_id] = i
                             r_order[robot_id] = 1
@@ -316,18 +318,16 @@ def find_target(r_distance, r_priority, sell_priority, workstations, robots):
                             max_priority = prior
                             r_next[robot_id] = i
                             r_order[robot_id] = 1
-        elif r_order[robot_id] == 1: # 如果当前机器人有靶订单
+        elif r_order[robot_id] == 1:  # 如果当前机器人有靶订单
             station_id = r_next[robot_id]
             if robots[robot_id]['if_product'] == 0:
                 # 机器人去买的时候，有可能买的没位置放。要做判断，机器按优先级换个工作站买
-                if is_station_rest(station_id, workstations, robots) == 0: # 如果发现没地方放了（当前物品类型被锁了），则按照优先级换单。
+                if is_station_rest(station_id, workstations, robots) == 0:  # 如果发现没地方放了（当前物品类型被锁了），则按照优先级换单。
                     r_order[robot_id] = 0
-            # else: # 机器人去卖的时候，如果没位置放，则按照优先级换个工作站卖
-            #     product_type = robots[robot_id]["if_product"]
-            #     if product_type not in find_materials_id(workstations[station_id]["type"], workstations[station_id]["m_state"]):
-            #         r_order[robot_id] = 0
-
-                
+            else: # 机器人去卖的时候，如果没位置放，则按照优先级换个工作站卖
+                product_type = robots[robot_id]["if_product"]
+                if product_type not in find_materials_id(workstations[station_id]["type"], workstations[station_id]["m_state"]):
+                    r_order[robot_id] = 0
 
 
 def move_target(r_distance, workstations, robots):
@@ -411,7 +411,7 @@ def move_target(r_distance, workstations, robots):
                 r_action[robot_id][0] = 2
         if 3 in dis_wall(robot_id, eps):
             if (robot_direction >= 0 and robot_direction < np.pi / 2 - theta) or (
-                    robot_direction > 3 * np.pi / 2 + theta  and robot_direction < 2 * np.pi):
+                    robot_direction > 3 * np.pi / 2 + theta and robot_direction < 2 * np.pi):
                 r_action[robot_id][0] = 2
         if 4 in dis_wall(robot_id, eps):
             if robot_direction > 0 + theta and robot_direction < np.pi - theta:
@@ -427,7 +427,6 @@ def move_target(r_distance, workstations, robots):
 
 
 def evade_crash(robots, robot_i, robot_j):
-
     second = 0.1
     v1 = np.sqrt(np.square(robots[robot_i]['x_line_speed']) + np.square(robots[robot_i]['y_line_speed']))
     x1 = robots[robot_i]['x'] + v1 * np.cos(robots[robot_i]['direction']) * second
@@ -563,7 +562,6 @@ def handle_module(workstations, robots, frame_id, money):
     check_action(workstations, robots)
 
 
-
 def respond_module():
     sys.stdout.write('%d\n' % frame_id)
     for robot_id in range(4):
@@ -585,7 +583,6 @@ def respond_module():
             sys.stdout.write('sell %d\n' % (robot_id))
         if destroy != -1:
             sys.stdout.write('destroy %d\n' % (robot_id))
-
 
 
 # 被锁住的机器人
