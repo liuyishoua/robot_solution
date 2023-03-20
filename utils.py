@@ -1,4 +1,22 @@
 import numpy as np
+import numpy
+from numpy import array, sqrt, copysign, dot, clip
+from numpy.linalg import det
+
+class Agent(object):
+    def __init__(self, position, velocity, radius, max_speed, pref_velocity):
+        super(Agent, self).__init__()
+        self.position = array(position)
+        self.velocity = array(velocity)
+        self.radius = radius
+        self.max_speed = max_speed
+        self.pref_velocity = array(pref_velocity)
+        
+class Line(object):
+    def __init__(self, point, direction):
+        super(Line, self).__init__()
+        self.point = array(point)
+        self.direction = norm(array(direction))
 
 
 def have_material_type(num):
@@ -177,6 +195,89 @@ def r_s_distance(robots, workstations):
     for robot_id in range(len(robots)):
         dis = []
         for station_id in range(len(workstations)):
+            dis.append(1/(np.sqrt(np.square(robots[robot_id]['x'] - workstations[station_id]['x']) + np.square(robots[robot_id]['y'] - workstations[station_id]['y']))))
+        r_s_dis.append(dis)
+    return r_s_dis
+
+def r_s_distance_mai(robots, workstations):
+    r_s_dis = []
+    for robot_id in range(len(robots)):
+        dis = []
+        for station_id in range(len(workstations)):
             dis.append(np.sqrt(np.square(robots[robot_id]['x'] - workstations[station_id]['x']) + np.square(robots[robot_id]['y'] - workstations[station_id]['y'])))
         r_s_dis.append(dis)
     return r_s_dis
+
+def hp_o(lines, optimal_point):
+    point = optimal_point
+    for i, line in enumerate(lines):
+        if dot(point - line.point, line.direction) >= 0:
+            continue
+        left_dist = float("-inf")
+        right_dist = float("inf")
+        for prev_line in lines[:i]:
+            num1 = dot(prev_line.direction, line.point - prev_line.point)
+            den1 = det((line.direction, prev_line.direction))
+            num = num1
+            den = den1
+            if den == 0:
+                if num < 0:
+                    continue
+                else:
+                    continue
+            offset = num / den
+            if den > 0:
+                right_dist = min((right_dist, offset))
+            else:
+                left_dist = max((left_dist, offset))
+            if left_dist > right_dist:
+                pass
+        left_bound, right_bound = left_dist, right_dist
+
+        new_dir = array((line.direction[1], -line.direction[0]))
+        proj_len = dot(optimal_point - line.point, new_dir)
+        clamped_len = clip(proj_len, left_bound, right_bound)
+        point = line.point + new_dir * clamped_len
+    return point
+
+def orca(agent, colliding_agents, t, dt):
+    lines = []
+    for collider in colliding_agents:
+        x = -(agent.position - collider.position)
+        v = agent.velocity - collider.velocity
+        r = agent.radius + collider.radius
+
+        x_len_sq = dot(x, x)
+
+        if x_len_sq >= r * r:
+            adjusted_center = x/t * (1 - (r*r)/x_len_sq)
+
+            if dot(v - adjusted_center, adjusted_center) < 0:
+                w = v - x/t
+                u = norm(w) * r/t - w
+                n = norm(w)
+            else:
+                leg_len = sqrt(x_len_sq - r*r)
+                sine = copysign(r, det((v, x)))
+                rot = array(
+                    ((leg_len, sine),
+                    (-sine, leg_len)))
+                rotated_x = rot.dot(x) / x_len_sq
+                n = array((rotated_x[1], -rotated_x[0]))
+                if sine < 0:
+                    n = -n
+                u = rotated_x * dot(v, rotated_x) - v
+        else:
+            w = v - x/dt
+            u = norm(w) * r/dt - w
+            n = norm(w)
+        dv, n = u, n
+
+        line = Line(agent.velocity + dv / 2, n)
+        lines.append(line)
+    return hp_o(lines, agent.pref_velocity), lines
+
+def norm(x):
+    l = dot(x, x)
+    assert l > 0, (x, l)
+    return x / sqrt(l)
