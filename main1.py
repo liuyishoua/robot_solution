@@ -4,8 +4,8 @@ import numpy as np
 
 
 # 跑分279w，表现比较稳定均在70w左右。加入融合距离优先级建模，修改BUG。
-from log import Log
-log = Log()
+# from log import Log
+# log = Log()
 
 
 def read_util_ok():
@@ -50,22 +50,23 @@ def read_info():
 
 
 def maintain_varible(workstations, robots):
-    # Compute distance between robot and station
-    for robot_id in range(len(robots)):
-        robot_i = []
-        for station_id in range(len(workstations)):
-            distance = np.square(robots[robot_id]['x'] - workstations[station_id]['x']) + np.square(
-                robots[robot_id]['y'] - workstations[station_id]['y'])
-            robot_i.append(distance)
-        r_distance.append(robot_i)
-        robot_i = []
-        # 机器人之间的距离
-        for j in range(len(robots)):
-            distance = np.square((robots[robot_id]['x'] - robots[j]['x'])) + np.square(
-                (robots[robot_id]['y'] - robots[j]['y']))
-            robot_i.append(distance)
-        r_r_distance.append(robot_i)
-
+    # # Compute distance between robot and station
+    # for robot_id in range(len(robots)):
+    #     robot_i = []
+    #     for station_id in range(len(workstations)):
+    #         distance = np.square(robots[robot_id]['x'] - workstations[station_id]['x']) + np.square(
+    #             robots[robot_id]['y'] - workstations[station_id]['y'])
+    #         robot_i.append(distance)
+    #     r_distance.append(robot_i)
+    #     robot_i = []
+    #     # 机器人之间的距离
+    #     for j in range(len(robots)):
+    #         distance = np.square((robots[robot_id]['x'] - robots[j]['x'])) + np.square(
+    #             (robots[robot_id]['y'] - robots[j]['y']))
+    #         robot_i.append(distance)
+    #     r_r_distance.append(robot_i)
+    r_distance = None
+    r_r_distance = None
     global locked_robots
     # 获取每一帧，物品 1-7, 哪个类别物品锁住了。
     material_locked_list = get_material_locked(workstations)
@@ -107,11 +108,16 @@ def maintain_varible(workstations, robots):
         if is_materials_3only1_rest(workstations[station_id]['type'], workstations):
             priority += 20
 
-        # 去掉该模块性能提升 6w。机器人可以去同一个地方买，不应该设置优先级。
-        # 去掉是可以理解的。
-        # for robot_id in range(len(robots)):
-        #     if robots[robot_id]['if_product'] == workstations[station_id]['type']:
-        #         priority -= 20
+        if max_456 == 4 and workstations[station_id]['type'] in [1,2]:
+            priority += 5
+        elif max_456 == 5 and workstations[station_id]['type'] in [1,3]:
+            priority += 5
+        elif max_456 == 6 and workstations[station_id]['type'] in [2,3]:
+            priority += 5
+            
+
+        if max_456 == workstations[station_id]['type']:
+            priority += 10
 
         if is_station_rest(station_id, workstations, robots) == 0:
             priority = -9999
@@ -125,6 +131,8 @@ def maintain_varible(workstations, robots):
                 priority = 10
             else:
                 priority = -9999
+        elif frame_id > 8300 and workstations[station_id]["type"] in [1,2,3]:
+            priority = -9999
         r_priority.append(priority)
 
     sell_priority = []
@@ -145,31 +153,17 @@ def maintain_varible(workstations, robots):
         material_num = len(find_materials_id(workstations[station_id]['type'], workstations[station_id]['m_state']))
         # 补3缺2
         if workstations[station_id]['type'] in [7] and material_num == 2:
-            priority += 5
+            priority += 20
         # 补3缺1
         if workstations[station_id]['type'] in [7] and material_num == 1:
-            priority += 20
+            priority += 40
         # 补2缺1
         if workstations[station_id]['type'] in [4, 5, 6] and material_num == 1:
-            priority += 10
-
-
-        # 设置为10最稳定。需要该模块，减少碰撞。能提升大概5w左右
-        for robot_id in range(len(robots)):
-            if robots[robot_id]["if_product"] != 0:
-                if r_next[robot_id] == station_id:
-                    priority -= 10
+            priority += 15
 
         # 地图中 7 工作台越少，解4，5，6锁的权重越大。添加后总计能提升3w。
         if max_456 == workstations[station_id]['type']:
-            priority += 10 * (1 / len(index_7))
-        
-
-        # 目前发现对性能基本没有影响。因为1-6，死锁的问题基本没有了。
-        # 提前解锁材料。1-6类别。7类别可以被工作台8接收，不会死锁。
-        for material_type in material_locked_list:
-            if workstations[station_id]["type"] in lock_type_list[material_type]:
-                priority += 30
+            priority += 20
 
         sell_priority.append(priority)
 
@@ -192,9 +186,6 @@ def distance_buy_sell(workstations, station_id):
             between_distance = np.sqrt(np.square(workstations[station_index]['x'] - workstations[station_id]['x']) + np.square(workstations[station_index]['y'] - workstations[station_id]['y']))
             if between_distance < distance:
                 distance = between_distance
-    # if distance < 30:
-    #     distance = 0
-    # distance等于9999，代表没有可以接收的材料位；否则返回最近可接受的该类别, 材料位的距离
     return distance
         
 
@@ -230,11 +221,9 @@ def check_action(workstations, robots):
 
 
 def find_target(r_distance, r_priority, sell_priority, workstations, robots):
-    alphamai = 1.5
-    alpha = 1.5
+    alphamai = 0
+    alpha = 0
     # alpha = 50
-    r_s_dis = r_s_distance(robots, workstations)
-    r_s_dis_mai = r_s_distance_mai(robots, workstations)
     for robot_id in range(len(robots)):
         if r_order[robot_id] == 0:  # 如果当前机器人没有靶订单，则设置靶订单
             r_priority = np.array(r_priority)
@@ -243,10 +232,7 @@ def find_target(r_distance, r_priority, sell_priority, workstations, robots):
                 max_priority = -np.inf
                 # log.write_string(f"prior: {r_priority}")
                 for i in range(len(r_priority)):
-                    buy2sell_distance = 0
-                    if workstations[i]["type"] in [1,2,3,4,5,6]:
-                        buy2sell_distance = distance_buy_sell(workstations, i)
-                    prior = r_priority[i] - alphamai * r_s_dis_mai[robot_id][i] - buy2sell_distance
+                    prior = r_priority[i]
                     if prior > max_priority and r_next_pass(r_next, robots, workstations,
                                                             robot_id, i, flag=0):
                         max_priority = prior
@@ -270,7 +256,7 @@ def find_target(r_distance, r_priority, sell_priority, workstations, robots):
 
                     max_priority = -np.inf
                     for i in range(len(sell_priority_copy)):
-                        prior = sell_priority_copy[i] - alpha * r_s_dis_mai[robot_id][i]
+                        prior = sell_priority_copy[i]
                         if prior > max_priority and product_id in find_materials_id(
                                 workstations[i]['type'], workstations[i]['m_state']) and r_next_pass(r_next, robots,
                                                                                                      workstations,
@@ -287,7 +273,7 @@ def find_target(r_distance, r_priority, sell_priority, workstations, robots):
 
                     max_priority = -np.inf
                     for i in range(len(sell_priority_copy)):
-                        prior = sell_priority_copy[i] - alpha * r_s_dis_mai[robot_id][i]
+                        prior = sell_priority_copy[i]
                         if prior > max_priority and product_id in find_materials_id(
                                 workstations[i]['type'], workstations[i]['m_state']) and r_next_pass(r_next, robots,
                                                                                                      workstations,
@@ -303,7 +289,7 @@ def find_target(r_distance, r_priority, sell_priority, workstations, robots):
 
                     max_priority = -np.inf
                     for i in range(len(sell_priority_copy)):
-                        prior = sell_priority_copy[i] - alpha * r_s_dis_mai[robot_id][i]
+                        prior = sell_priority_copy[i]
                         if prior > max_priority and product_id in find_materials_id(
                                 workstations[i]['type'], workstations[i]['m_state']) and r_next_pass(r_next, robots,
                                                                                                      workstations,
@@ -319,7 +305,7 @@ def find_target(r_distance, r_priority, sell_priority, workstations, robots):
 
                     max_priority = -np.inf
                     for i in range(len(sell_priority_copy)):
-                        prior = sell_priority_copy[i] - alpha * r_s_dis_mai[robot_id][i]
+                        prior = sell_priority_copy[i]
                         if prior > max_priority and product_id in find_materials_id(
                                 workstations[i]['type'], workstations[i]['m_state']) and r_next_pass(r_next, robots,
                                                                                                      workstations,
@@ -335,7 +321,7 @@ def find_target(r_distance, r_priority, sell_priority, workstations, robots):
 
                     max_priority = -np.inf
                     for i in range(len(sell_priority_copy)):
-                        prior = sell_priority_copy[i] - alpha * r_s_dis_mai[robot_id][i]
+                        prior = sell_priority_copy[i]
                         if prior > max_priority and product_id in find_materials_id(
                                 workstations[i]['type'], workstations[i]['m_state']) and r_next_pass(r_next, robots,
                                                                                                      workstations,
@@ -446,36 +432,36 @@ def move_target(r_distance, workstations, robots):
             else:
                 r_action[robot_id][0] = 6
                 r_action[robot_id][1] = np.pi * (ex - ex2) / (ex + ex2)
+        
+        if workstations[station_target]["type"] in [1,2,3]:
+            distance = np.sqrt(np.square(robots[robot_id]["x"] - workstations[station_target]["x"]) + np.square(robots[robot_id]["y"] - workstations[station_target]["y"]))
+            if distance < 2:
+                r_action[robot_id][0] = 3
 
-        # 判断那堵墙与机器人的距离小于eps，返回墙壁数组；左墙为1，下墙为2，右墙为3，上墙为4
-        # 只有当机器人的方向朝向墙，才减速。
-        eps = 2
-        theta = 0.1
-        if 1 in dis_wall(robot_id, eps):
-            if robot_direction > (np.pi / 2) + theta and robot_direction < 3 * np.pi / 2 - theta:
-                r_action[robot_id][0] = 2
-        if 2 in dis_wall(robot_id, eps):
-            if robot_direction > np.pi + theta and robot_direction < 2 * np.pi - theta:
-                r_action[robot_id][0] = 2
-        if 3 in dis_wall(robot_id, eps):
-            if (robot_direction >= 0 and robot_direction < np.pi / 2 - theta) or (
-                    robot_direction > 3 * np.pi / 2 + theta and robot_direction < 2 * np.pi):
-                r_action[robot_id][0] = 2
-        if 4 in dis_wall(robot_id, eps):
-            if robot_direction > 0 + theta and robot_direction < np.pi - theta:
-                r_action[robot_id][0] = 2
+        if workstations[station_target]["type"] in [4,5,6,7,8,9]:
+            if abs(real_delta_direction) > 0.7:
+                # r_action[robot_id][0] = delta_dis * (6 / eps)
+                r_action[robot_id][0] = 0
+                r_action[robot_id][1] = np.pi if real_delta_direction >= 0 else -np.pi
+            else:
+                r_action[robot_id][0] = 6
+                r_action[robot_id][1] = np.pi * (ex - ex2) / (ex + ex2)
 
     for robot_id in range(len(robots)):
         for robot_j in range(len(robots)):
             if robot_j > robot_id:
                 if if_crash(robots, robot_id, robot_j):
-                    if len(workstations) == 43:
-                        # 对机器人i与j进行躲避碰撞, 函数内调整角速度。
-                        # evade_crash_simple(robots, robot_id, robot_j)
-                        evade_crash(robots)
-                    else:
-                        # evade_crash(robots)
+                    if frame_id % 3 == 0:
+                        evade_crash(robots, robot_id, robot_j)
+                    elif frame_id % 3 == 1:
                         evade_crash_simple(robots, robot_id, robot_j)
+                    elif frame_id % 3 == 2:
+                        evade_crash_back(robots, robot_id, robot_j)
+
+def evade_crash_back(robots, robot_i, robot_j):
+    r_action[robot_j][0] = -2
+    r_action[robot_j][1] = - np.sign(r_action[robot_j][1]) * np.pi
+
 
 def evade_crash_simple(robots, robot_i, robot_j):
     second = 0.1
@@ -533,7 +519,8 @@ def evade_crash_simple(robots, robot_i, robot_j):
         r_action[robot_j][0] = delta_dis * (6 / eps)
         r_action[robot_j][1] = -np.pi if real_delta_direction >= 0 else np.pi
 
-def evade_crash(robots):
+
+def evade_crash(robots, robot_i, robot_j):
     agents = [-1, -1, -1, -1]
     max_speed = 6
     dt = 1/50
@@ -575,12 +562,14 @@ def evade_crash(robots):
             ex2 = np.exp(-real_delta_direction)
 
             # r_action[i][0] = np.sqrt(np.square(new_speed[0]) + np.square(new_speed[1]))
-            r_action[i][0] = np.sqrt(np.square(new_speed[0]) + np.square(new_speed[1]))
-            r_action[i][1] = np.pi if real_delta_direction >= 0 else -np.pi
+            if i == robot_i or i == robot_j:
+                r_action[i][0] = np.sqrt(np.square(new_speed[0]) + np.square(new_speed[1]))
+                r_action[i][1] = np.pi if real_delta_direction >= 0 else -np.pi
             # np.pi * (ex - ex2) / (ex + ex2)
         else:
-            r_action[i][0] = 6
-            r_action[i][1] = 0
+            if i == robot_i or i == robot_j:
+                r_action[i][0] = 0
+                r_action[i][1] = 0
 
 
 def get_material_locked(workstations):
@@ -618,11 +607,13 @@ def r_next_pass(r_next, robots, workstations, robot_i, station_i, flag=0):
             if station_id == station_i:
                 # 机器人去相同工作站买。最多两个去同一个工作台买。工作站1，2，3，1s即可生产出产品。如果4，5，6，7因生产输出格满而阻塞，则可以同一个
                 if workstations[station_id]['type'] in [1, 2, 3] and workstations[station_id][
-                    'rest_frame'] == 0 and buy_times == 0:
+                    'rest_frame'] == 0 and buy_times == 0 and frame_id < 200:
                     buy_times += 1
+                    pass
                 elif workstations[station_id]['type'] in [4, 5, 6, 7] and workstations[station_id][
                     'rest_frame'] == 0 and buy_times == 0:
-                    buy_times += 1
+                    # buy_times += 1
+                    return False
                 else:
                     return False
     elif flag == 1:
@@ -649,29 +640,23 @@ def handle_module(workstations, robots, frame_id, money):
     global locked_robots
     r_action = [[-1] * 5, [-1] * 5, [-1] * 5, [-1] * 5]
     locked_robots = []
-    start1 = time.time()
     # Maintain the distance for each robot and s_type for stations.
     r_distance, r_priority, sell_priority = maintain_varible(workstations, robots)
-    start2 = time.time()
     
     # Update r_next for each robot.
     find_target(r_distance, r_priority, sell_priority, workstations, robots)
-    start3 = time.time()
     
     move_target(r_distance, workstations, robots)
-    start4 = time.time()
     
     # Check and update buy, sell, destroy action for each robot.
     check_action(workstations, robots)
-    start5 = time.time()
-    return start1, start2, start3, start4, start5
     
 
 def respond_module():
     sys.stdout.write('%d\n' % frame_id)
     for robot_id in range(4):
         line_speed, angle_speed, buy, sell, destroy = r_action[robot_id]
-        if frame_id > 8650:
+        if frame_id > 8850:
             buy = -1
         # 如果检测到了机器人死锁，则进行原地打转操作。直到死锁解除。
         if robot_id in locked_robots:
@@ -689,7 +674,6 @@ def respond_module():
         if destroy != -1:
             sys.stdout.write('destroy %d\n' % (robot_id))
 
-import time
 # 被锁住的机器人
 locked_robots = []
 # 每个机器人与工作台之间的距离. 类型 list[list[]]，shape是（4，工作台的个数）
@@ -709,27 +693,14 @@ r_order = [0, 0, 0, 0]
 if __name__ == '__main__':
     read_util_ok()
     finish()
-    result1 = 0
-    result2 = 0
-    result3 = 0
-    result4 = 0
     while True:
         # Read the input stdin
         workstations, robots, frame_id, money = read_info()
         read_util_ok()
 
         # The core logical handle module
-        start1, start2, start3, start4, start5 = handle_module(workstations, robots, frame_id, money)
-        result1 += (start2 - start1)*1000
-        result2 += (start3 - start2)*1000
-        result3 += (start4 - start3)*1000
-        result4 += (start5 - start4)*1000
+        handle_module(workstations, robots, frame_id, money)
         # The respond to each frame. Action for each robot.
         respond_module()
         finish()
-        if frame_id == 9000:
-            log.write_string(f"maintain_varible: average {result1/9000} ms")
-            log.write_string(f"find_target: {result2/9000} ms")
-            log.write_string(f"move_target: {result3/9000} ms")
-            log.write_string(f"check_action: {result4/9000} ms")
 
