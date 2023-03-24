@@ -186,6 +186,10 @@ def if_crash(robots, robot_i, robot_j, frame=100):
         y1 = robots[robot_i]['y'] + v1 * np.sin(robots[robot_i]['direction']) * second
         x2 = robots[robot_j]['x'] + v2 * np.cos(robots[robot_j]['direction']) * second
         y2 = robots[robot_j]['y'] + v2 * np.sin(robots[robot_j]['direction']) * second
+        x1 = np.clip(x1, 0, 50)
+        x2 = np.clip(x2, 0, 50)
+        y1 = np.clip(y1, 0, 50)
+        y2 = np.clip(y2, 0, 50)
         if np.square(x1 - x2) + np.square(y1 - y2) <= np.square(distance):
             return True
     return False
