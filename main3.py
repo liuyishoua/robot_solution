@@ -211,7 +211,7 @@ def check_action(workstations, robots):
 
 def find_target(r_distance, r_priority, sell_priority, workstations, robots):
     alpha = 2
-    r_s_dis = r_s_distance(robots, workstations)
+    r_s_dis = r_s_distance_mai(robots, workstations)
     for robot_id in range(len(robots)):
         if r_order[robot_id] == 0:  # 如果当前机器人没有靶订单，则设置靶订单
             r_priority = np.array(r_priority)
